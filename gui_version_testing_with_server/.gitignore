@@ -1,0 +1,281 @@
+# ===========================================
+# CCTV Detection System - .gitignore
+# ===========================================
+
+# -------------------------------------------
+# Python
+# -------------------------------------------
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+*.whl
+*.pyd
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv/
+.virtualenv/
+Lib/
+Scripts/
+Include/
+pip-selfcheck.json
+
+# -------------------------------------------
+# IDE & Editor
+# -------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+.spyproject/
+.spyderproject
+*.code-workspace
+
+# Claude Code
+.claude/
+
+# -------------------------------------------
+# Logs (CRITICAL - may contain sensitive data)
+# -------------------------------------------
+*.log
+logs/
+*_log.txt
+monitor_log.txt
+heartbeat_log.txt
+startup_log.txt
+main_v2_log.txt
+error*.log
+debug*.log
+
+# -------------------------------------------
+# Models (large files - 50MB+)
+# -------------------------------------------
+*.pt
+*.pth
+*.onnx
+*.engine
+*.engine.*
+*.weights
+*.caffemodel
+*.h5
+*.pb
+*.tflite
+*.mlmodel
+models/*.pt
+models/*.onnx
+models/*.engine
+
+# -------------------------------------------
+# Credentials & Secrets (CRITICAL)
+# -------------------------------------------
+.env
+.env.*
+.env.local
+.env.production
+.env.development
+
+# Google Service Account
+credentials.json
+*credentials*.json
+serviceAccountKey.json
+*serviceAccount*.json
+*.pem
+*.key
+
+# Configuration files with secrets
+Konfigurasi*.txt
+konfigurasi*.txt
+config*.txt
+secrets*.json
+*secrets*.json
+*token*.txt
+*password*.txt
+
+# -------------------------------------------
+# State & Runtime Files
+# -------------------------------------------
+state*.json
+*_state.json
+v3_state.json
+state_main_new.json
+
+# Config directory (contains user profiles with credentials)
+config/*.json
+!config/.gitkeep
+
+# -------------------------------------------
+# Temporary & Cache Files
+# -------------------------------------------
+*.tmp
+*.temp
+*.bak
+*.backup
+*.backup_*
+*.swp
+*.cache
+*.pid
+.cache/
+tmp/
+temp/
+
+# -------------------------------------------
+# OS Generated
+# -------------------------------------------
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+*.lnk
+[Dd]esktop.ini
+
+# -------------------------------------------
+# Output & Media Files
+# -------------------------------------------
+outputs/
+results/
+recordings/
+snapshots/
+frames/
+
+# Video files
+*.mp4
+*.avi
+*.mkv
+*.mov
+*.wmv
+*.flv
+*.webm
+
+# Image files (except docs)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.bmp
+*.tiff
+!docs/*.png
+!docs/*.jpg
+!docs/*.gif
+
+# -------------------------------------------
+# Testing & Coverage
+# -------------------------------------------
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+.tox/
+.nox/
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+nosetests.xml
+test-results/
+junit*.xml
+
+# -------------------------------------------
+# Database
+# -------------------------------------------
+*.db
+*.sqlite
+*.sqlite3
+*.db-journal
+*.db-shm
+*.db-wal
+
+# -------------------------------------------
+# Build & Distribution
+# -------------------------------------------
+*.exe
+*.dll
+*.msi
+*.app
+*.dmg
+*.pkg
+*.deb
+*.rpm
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# -------------------------------------------
+# Jupyter Notebooks
+# -------------------------------------------
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# -------------------------------------------
+# Archive (keep tracked but ignore certain files)
+# -------------------------------------------
+# Archive folder is tracked, but ignore any credentials there
+archive/*credentials*
+archive/*.json
+
+# -------------------------------------------
+# Documentation (keep most, ignore generated)
+# -------------------------------------------
+!docs/
+!docs/*.md
+!docs/*.txt
+docs/_build/
+docs/api/
+
+# -------------------------------------------
+# Keep these files (exceptions)
+# -------------------------------------------
+!.gitignore
+!.gitkeep
+!requirements.txt
+!README.md
+!MIGRATION.md
+!REORGANIZATION_SUMMARY.md
+!docs/*.txt
+!docs/*.md
+
+# -------------------------------------------
+# Project-specific ignores
+# -------------------------------------------
+# QR Code outputs
+qr_codes/
+qr_*.png
+
+# Frame captures
+frame_*.jpg
+frame_*.png
+capture_*.jpg
+
+# Detection outputs
+detection_*.jpg
+detection_*.png
+
+# Backup files
+*.orig
+*.bkp
+*_backup*
+*_old*
+
+# Local development overrides
+local_settings.py
+local_config.py
+*_local.py
+*_local.json

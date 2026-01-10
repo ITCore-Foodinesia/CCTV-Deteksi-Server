@@ -1,0 +1,34 @@
+# ICETUBE CCTV - Version Control & Changelog
+
+[2026-01-06 12:15:32] v4.0.0-alpha
+- Implementation of V4 Persistence Logic: 3-second wait timer for objects that disappear in the target zone.
+- Added "Fast Entry Fallback": Immediate counting for objects that skip the entry line but appear directly in the target zone.
+- Added --v4 flag to configuration system.
+
+[2026-01-06 12:35:10] v4.0.1
+- Integrated V4 Mode toggle into Control Panel.
+- Added automatic Telegram Bot startup when V4 is enabled.
+- Persistent V4 state saved in control_panel_config.json.
+
+[2026-01-06 12:55:45] v4.0.2
+- Improved UI Visualization:
+    - ENTRY line changed to GREEN.
+    - TARGET line changed to BLUE.
+    - Added text labels to lines for clarity.
+    - Object bounding boxes now color-coded: YELLOW (Armed), CYAN (Finished), GREEN (Tracking).
+
+[2026-01-06 13:12:18] v4.0.3
+- FIXED: "Not Responding" crash caused by undefined 'font' variable in UI drawing logic.
+- Added "V4 ACTIVE" vs "V3 ACTIVE" diagnostic label in camera window.
+- Thickened lines (thickness=3) for better visibility.
+
+[2026-01-06 13:26:40] v4.0.4 - STABLE DIRECTIONAL
+- CORRECTED Directional Logic:
+    - Vertical Mode: Right-to-Left (R2L) is now correctly mapped to LOADING.
+    - Vertical Mode: Left-to-Right (L2R) is now correctly mapped to REHAB.
+- FIXED Label Swapping: Corrected ENTRY/EXIT labels to match the new directional flow.
+- Added Multi-directional Support: Detector can now track both LOADING and REHAB objects simultaneously in V4 mode.
+- Standardized Session Reset: Ensured ARMED and PERSISTENCE states are cleared on QR change or timeout.
+
+[2026-01-06 13:33:15] v4.0.5
+- Created changelog.txt for version tracking.
