@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Use the existing api_server.py on port 5001 for video stream
 // Engine API runs on port 8080 for detection data
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5001';
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
@@ -16,7 +16,7 @@ export const getStreamRawUrl = () => `${API_BASE_URL}/api/stream/video_raw?t=${D
 // Direct stream URL from main_v2.py Edge Node (bypass api_server for video)
 // If using api_server (5001), endpoint is /api/stream/video
 // If using main_v2 (5002), endpoint is /video_feed
-const EDGE_STREAM_URL = import.meta.env.VITE_EDGE_URL || 'http://localhost:5002';
+const EDGE_STREAM_URL = import.meta.env.VITE_EDGE_URL || '';
 export const getDirectStreamUrl = () => {
   // Detect if using api_server (port 5001 or public api domain) or main_v2 edge node (port 5002)
   // If URL contains 'api.' or ':5001', it means we are going through api_server.py
