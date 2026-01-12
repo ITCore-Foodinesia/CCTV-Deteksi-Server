@@ -46,6 +46,10 @@ pip-selfcheck.json
 
 # Claude Code
 .claude/
+CLAUDE.md
+
+# Agents Behaviour
+.agents/
 
 # -------------------------------------------
 # Logs (CRITICAL - may contain sensitive data)
