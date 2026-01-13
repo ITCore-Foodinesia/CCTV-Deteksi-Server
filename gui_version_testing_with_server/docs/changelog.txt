@@ -1,34 +1,96 @@
-# ICETUBE CCTV - Version Control & Changelog
+================================================================================
+CHANGELOG - CCTV Detection System
+================================================================================
 
-[2026-01-06 12:15:32] v4.0.0-alpha
-- Implementation of V4 Persistence Logic: 3-second wait timer for objects that disappear in the target zone.
-- Added "Fast Entry Fallback": Immediate counting for objects that skip the entry line but appear directly in the target zone.
-- Added --v4 flag to configuration system.
+================================================================================
+[2026-01-13 16:42 WITA] - Bug Fix: Sheets Data Display
+================================================================================
 
-[2026-01-06 12:35:10] v4.0.1
-- Integrated V4 Mode toggle into Control Panel.
-- Added automatic Telegram Bot startup when V4 is enabled.
-- Persistent V4 state saved in control_panel_config.json.
+Summary:
+  Dashboard was displaying total sum values (loading_count/rehab_count) instead 
+  of last row values (latest_loading/latest_rehab) from Google Sheets.
 
-[2026-01-06 12:55:45] v4.0.2
-- Improved UI Visualization:
-    - ENTRY line changed to GREEN.
-    - TARGET line changed to BLUE.
-    - Added text labels to lines for clarity.
-    - Object bounding boxes now color-coded: YELLOW (Armed), CYAN (Finished), GREEN (Tracking).
+Root Cause:
+  - WebSocket stats_update and REST API /api/stats were using loading_count (28)
+    instead of latest_loading (78)
+  - This caused Dashboard to show incorrect values: 28/20 instead of 78/50
 
-[2026-01-06 13:12:18] v4.0.3
-- FIXED: "Not Responding" crash caused by undefined 'font' variable in UI drawing logic.
-- Added "V4 ACTIVE" vs "V3 ACTIVE" diagnostic label in camera window.
-- Thickened lines (thickness=3) for better visibility.
+Files Changed:
+  
+  [Backend - Unified Server]
+  - gui_version_testing_with_server/src/unified_server/api/websocket.py
+    * Line 85-86: Changed sheets_data.get('loading_count') to sheets_data.get('latest_loading')
+    * Line 161-162: Same fix in stats broadcast loop
+  
+  - gui_version_testing_with_server/src/unified_server/api/routes.py
+    * Line 111-112: Changed /api/stats endpoint to use latest_loading/latest_rehab
+  
+  [Backend - Legacy API Server]
+  - gui_version_testing_with_server/src/api/api_server.py
+    * Line 1121-1124: Fixed webhook handler to use latest_loading instead of loading_count
+  
+  [Backend - Mock Test Server]
+  - gui_version_testing_with_server/src/testing/mock_main_v3.py
+    * Line 43-54: Added latest_loading and latest_rehab fields to sheets_data dict
+    * Line 214-226: Updated sheets_poll_loop to parse and store latest values
+  
+  [Frontend - Dashboard]
+  - dashboard/src/hooks/useWebSocket.js
+    * Line 18-26: Added latest_loading and latest_rehab to initial sheetsData state
+  
+  - dashboard/src/components/WarehouseAIDashboard.jsx
+    * Line 52-61: Added DEBUG logging to trace data flow (temporary for debugging)
 
-[2026-01-06 13:26:40] v4.0.4 - STABLE DIRECTIONAL
-- CORRECTED Directional Logic:
-    - Vertical Mode: Right-to-Left (R2L) is now correctly mapped to LOADING.
-    - Vertical Mode: Left-to-Right (L2R) is now correctly mapped to REHAB.
-- FIXED Label Swapping: Corrected ENTRY/EXIT labels to match the new directional flow.
-- Added Multi-directional Support: Detector can now track both LOADING and REHAB objects simultaneously in V4 mode.
-- Standardized Session Reset: Ensured ARMED and PERSISTENCE states are cleared on QR change or timeout.
+  [Config]
+  - gui_version_testing_with_server/.gitignore
+    * Line 119-123: Removed config/*.json from ignore list to allow tracking
 
-[2026-01-06 13:33:15] v4.0.5
-- Created changelog.txt for version tracking.
+Result:
+  - Dashboard now correctly displays: 78, 50, 128 (was: 28, 20, 48)
+  - Data from last row of Google Sheets is now used instead of total sums
+
+================================================================================
+[2026-01-13 15:30 WITA] - Feature: Enhanced TUI Dashboard
+================================================================================
+
+Summary:
+  Added professional Terminal User Interface (TUI) with progress bars and 
+  resource monitoring.
+
+Files Changed:
+  - gui_version_testing_with_server/src/utils/tui.py
+    * Created EnhancedServerTUI class with Rich library
+    * Added CPU/Memory monitoring via psutil
+    * Progress bars for FPS and buffer usage
+  
+  - gui_version_testing_with_server/src/unified_server/main.py
+    * Updated to use EnhancedServerTUI
+    * Added _get_tui_stats() for comprehensive stats format
+  
+  - gui_version_testing_with_server/src/testing/mock_main_v3.py
+    * Updated get_tui_stats() for enhanced TUI format
+  
+  - gui_version_testing_with_server/scripts/start_test_stream.bat
+    * Added --tui flag support
+    * Added --sheets flag for Google Sheets integration testing
+
+================================================================================
+[2026-01-13 14:00 WITA] - Feature: HTTP Relay Mode
+================================================================================
+
+Summary:
+  Created Unified Server architecture with relay mode to consume Main V3 stream.
+
+Files Changed:
+  - gui_version_testing_with_server/src/unified_server/capture/http_relay.py
+    * Created HTTPStreamRelay class for relaying MJPEG streams
+  
+  - gui_version_testing_with_server/src/unified_server/config.py
+    * Added CaptureConfig with mode: 'relay' | 'direct'
+    * Added relay_url and relay_stats_url settings
+  
+  - gui_version_testing_with_server/src/unified_server/main.py
+    * Added support for relay mode
+    * Integration with Main V3 on port 5002
+
+================================================================================
