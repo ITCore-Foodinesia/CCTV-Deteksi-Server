@@ -1117,11 +1117,11 @@ def sheets_webhook():
         
         print(f"Webhook received from Apps Script: {data}")
         
-        # Update stats
-        if 'loading_count' in data:
-            stream.stats['inbound'] = data['loading_count']
-        if 'rehab_count' in data:
-            stream.stats['outbound'] = data['rehab_count']
+        # Update stats - use latest_loading/latest_rehab (last row values)
+        if 'latest_loading' in data:
+            stream.stats['inbound'] = safe_int(data['latest_loading'])
+        if 'latest_rehab' in data:
+            stream.stats['outbound'] = safe_int(data['latest_rehab'])
         
         # Update cache
         stream.sheets_data_cache = build_sheets_cache(data)

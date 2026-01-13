@@ -89,6 +89,7 @@ class ControlPanel(tk.Tk):
         self.main_v2_path = str((APP_DIR / "archive" / "main_v2_legacy.py").resolve())  # V2 archived
         self.qr_standby_path = str((APP_DIR / "qr_standby.py").resolve())
         self.bot_monitor_path = str((APP_DIR / "src" / "integrations" / "telegram" / "telegram_monitor_bot.py").resolve())
+        self.unified_server_module = "src.unified_server.main"  # Unified Server for dashboard streaming
 
         # Konfigurasi global (akun + profil)
         self.config_data = load_config()
@@ -632,6 +633,13 @@ class ControlPanel(tk.Tk):
         n = kill_process("src.detection.gui_version_partial.main") # Kill new module execution
         n += kill_process("gui_version_partial.main") # Kill old module execution
         n += kill_process("main.py") # Fallback
+        
+        # Also stop Unified Server
+        n_unified = kill_process("src.unified_server.main")
+        n_unified += kill_process("unified_server.main")
+        if n_unified > 0:
+            self.log(f"Unified Server dihentikan (terminated={n_unified}).")
+        
         self.log(f"Main V3 dihentikan (terminated={n}).")
 
     def toggle_main_v3(self) -> None:
@@ -701,8 +709,44 @@ class ControlPanel(tk.Tk):
                     creationflags=creation_flags
                 )
                 self.log("Main V3 telah dijalankan di window baru.")
+                
+                # Auto-start Unified Server for dashboard streaming
+                time.sleep(2)  # Wait for Main V3 to start
+                self._start_unified_server()
             except Exception as e:
                 messagebox.showerror("Gagal V3", str(e))
+
+    def _start_unified_server(self) -> None:
+        """Auto-start Unified Server for dashboard streaming (port 5001)."""
+        try:
+            if is_process_running("src.unified_server.main") or is_process_running("unified_server.main"):
+                self.log("Unified Server sudah berjalan.")
+                return
+            
+            self.log("Starting Unified Server (port 5001) for dashboard streaming...")
+            
+            # Use relay mode to read from Main V3 at port 5002
+            cmd = [
+                self._python_exe(),
+                "-m", self.unified_server_module,
+                "--relay",  # Enable relay mode
+            ]
+            
+            # Create separate console window
+            creation_flags = subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0
+            
+            subprocess.Popen(
+                cmd,
+                cwd=str(APP_DIR),
+                creationflags=creation_flags
+            )
+            
+            self.log("Unified Server started! Dashboard can now access stream at port 5001.")
+            self.log("Stream URL: http://localhost:5001/api/stream/video")
+            
+        except Exception as e:
+            self.log(f"Warning: Failed to start Unified Server: {e}")
+            self.log("You may need to start it manually for dashboard streaming.")
 
     def open_log(self) -> None:
         logfile = APP_DIR / "logs" / "monitor_log.txt"

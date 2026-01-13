@@ -1,0 +1,25 @@
+{
+  "host": "0.0.0.0",
+  "port": 5001,
+  "debug": false,
+  "enable_tui": true,
+  
+  "capture": {
+    "mode": "relay",
+    "relay_url": "http://localhost:5002/video_feed",
+    "relay_stats_url": "http://localhost:5002/stats",
+    "buffer_size": 3,
+    "reconnect_delay": 2.0
+  },
+  
+  "sheets": {
+    "enabled": true,
+    "webapp_url": "https://script.google.com/macros/s/AKfycbyhZwx1prCzO9u25d_zi2U88R-A1NWfDkKoVbVDxWG_XDN6DmxYC--k2aJqR5ICoZvhKw/exec",
+    "poll_interval": 5
+  },
+  
+  "telegram": {
+    "enabled": false,
+    "api_url": ""
+  }
+}

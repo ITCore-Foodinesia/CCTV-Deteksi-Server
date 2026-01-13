@@ -1,0 +1,32 @@
+{
+  "accounts": [
+    {
+      "username": "admin",
+      "password": "tenggarong1"
+    }
+  ],
+  "profiles": {
+    "CCTV Loading": {
+      "source": "rtsp://foodinesia:tenggarong1@192.168.10.17:554/stream1",
+      "model": "models/bestbaru.engine",
+      "creds": "config/credentials.json",
+      "sheet_id": "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
+      "worksheet": "AUTO_ID",
+      "plate": "UNKNOWN",
+      "system_token": "7990876346:AAEm4bpPB9fKiVtC5il4dFWEANc1didd6jk",
+      "system_chat": "7678774830",
+      "notify_token": "8211331363:AAGbdiCNGzgYp7K5QswpA5SopVa3YeGbRUU",
+      "notify_chat": "-4875731276",
+      "conf": "0.38",
+      "iou": "0.34",
+      "webapp_url": "https://script.google.com/macros/s/AKfycbyhZwx1prCzO9u25d_zi2U88R-A1NWfDkKoVbVDxWG_XDN6DmxYC--k2aJqR5ICoZvhKw/exec"
+    }
+  },
+  "last_profile": "CCTV Loading",
+  "auto_start": false,
+  "last_conf": "0.38",
+  "last_iou": "0.34",
+  "stream_mode": "http",
+  "stream_url": "http://localhost:5002/video_feed",
+  "v4_enabled": false
+}

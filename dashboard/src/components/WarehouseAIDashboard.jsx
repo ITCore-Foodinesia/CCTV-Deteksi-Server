@@ -51,6 +51,16 @@ const WarehouseAIDashboard = () => {
   const barangKeluar = parseValue(sheetsData.latest_rehab, stats.outbound || 0);
   const totalLoading = barangMasuk + barangKeluar;
 
+  // DEBUG: Log values to identify source of 28/20
+  console.log('DEBUG Stats:', {
+    'sheetsData.latest_loading': sheetsData.latest_loading,
+    'sheetsData.latest_rehab': sheetsData.latest_rehab,
+    'stats.inbound': stats.inbound,
+    'stats.outbound': stats.outbound,
+    'barangMasuk (displayed)': barangMasuk,
+    'barangKeluar (displayed)': barangKeluar,
+  });
+
   const statsConfig = [
     {
       icon: ArrowDownLeft,

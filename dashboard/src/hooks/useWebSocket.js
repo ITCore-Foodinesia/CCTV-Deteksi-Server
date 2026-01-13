@@ -21,6 +21,8 @@ export const useWebSocket = () => {
     latest_items: 'Unknown',
     loading_count: 0,
     rehab_count: 0,
+    latest_loading: 0,  // Last row loading value
+    latest_rehab: 0,    // Last row rehab value
   });
 
   const socketRef = useRef(null);

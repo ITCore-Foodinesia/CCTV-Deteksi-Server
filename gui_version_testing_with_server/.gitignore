@@ -116,8 +116,10 @@ state*.json
 v3_state.json
 state_main_new.json
 
-# Config directory (contains user profiles with credentials)
-config/*.json
+# Config directory - now tracked (unified_server configs)
+# NOTE: Credentials should still be kept in separate files and ignored
+!config/
+!config/*.json
 !config/.gitkeep
 
 # -------------------------------------------
