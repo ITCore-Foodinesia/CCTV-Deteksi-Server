@@ -11,7 +11,7 @@ from collections import deque
 from ultralytics import YOLO
 import torch
 import requests
-from pyzbar.pyzbar import decode # Enhanced QR Detection
+from pyzbar.pyzbar import decode, ZBarSymbol # Enhanced QR Detection
 
 from .shared import DetectionPayload, QREvent, ControlEvent, PROC_DETECTOR, PROC_SCANNER
 from .config import load_config
@@ -163,7 +163,7 @@ class QRWorker(threading.Thread):
                 
                 if frame_to_scan is not None:
                     # Using pyzbar for robust detection
-                    decoded_objects = decode(frame_to_scan)
+                    decoded_objects = decode(frame_to_scan, symbols=[ZBarSymbol.QRCODE])
                     if decoded_objects:
                         for obj in decoded_objects:
                             data = obj.data.decode("utf-8")
@@ -343,7 +343,7 @@ def run_detector_threaded(config, callback_update=None):
                 sheet_timer_start = time.time()
                 print(f"[{PROC_DETECTOR}] START status detected. Timer & Counting STARTED.")
                 upload_queue.put(DetectionPayload(time.time(), current_plate, loading, rehab, total, "SESSION_START"))
-        elif api_status in ["STOP", "STOPPED", "IDLE", "FINISHED"]:
+        elif api_status in ["STOP", "STOPPED", "IDLE", "FINISHED", "WAITING"]:
             counting_active = False
             # If stopped, finalize session with LAST ACTIVITY TIME
             if sheet_timer_start is not None:
