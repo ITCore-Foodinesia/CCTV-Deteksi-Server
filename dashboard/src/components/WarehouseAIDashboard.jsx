@@ -47,8 +47,9 @@ const WarehouseAIDashboard = () => {
     return isNaN(parsed) ? fallback : parsed;
   };
 
-  const barangMasuk = parseValue(sheetsData.latest_loading, stats.inbound || 0);
-  const barangKeluar = parseValue(sheetsData.latest_rehab, stats.outbound || 0);
+  // Use loading_count/rehab_count OR latest_loading/latest_rehab (depending on what API sends)
+  const barangMasuk = parseValue(sheetsData.loading_count, parseValue(sheetsData.latest_loading, stats.inbound || 0));
+  const barangKeluar = parseValue(sheetsData.rehab_count, parseValue(sheetsData.latest_rehab, stats.outbound || 0));
   const totalLoading = barangMasuk + barangKeluar;
 
   const statsConfig = [

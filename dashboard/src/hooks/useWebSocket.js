@@ -27,12 +27,11 @@ export const useWebSocket = () => {
 
   useEffect(() => {
     socketRef.current = io(SOCKET_URL, {
-      transports: ['websocket', 'polling'], // Prioritize websocket
+      transports: ['websocket', 'polling'],
       reconnection: true,
       reconnectionDelay: 1000,
       reconnectionAttempts: 20,
-      secure: true, // Force secure since we are on https
-      rejectUnauthorized: false // Self-signed certs fix (though CF uses valid certs)
+      // Note: secure/rejectUnauthorized removed - they break Vite proxy
     });
 
     const socket = socketRef.current;

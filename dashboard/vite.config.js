@@ -5,6 +5,7 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: true, // Listen on all interfaces (0.0.0.0) - required for Cloudflare tunnel
     allowedHosts: [
       'dashboard.foodiserver.my.id',
       'dashboards.foodiserver.my.id',
