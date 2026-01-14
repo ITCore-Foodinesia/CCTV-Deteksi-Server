@@ -28,5 +28,5 @@
   "last_iou": "0.34",
   "stream_mode": "http",
   "stream_url": "http://localhost:5002/video_feed",
-  "v4_enabled": false
+  "v4_enabled": true
 }

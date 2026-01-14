@@ -8,10 +8,12 @@ class SOPDetector:
         print(f"✅ Loading YOLO engine: {engine_path}")
         self.model = YOLO(engine_path, task="detect")
 
-    def detect(self, frame):
-        return self.model(
+    def track(self, frame):
+        return self.model.track(
             frame,
             conf=CONFIDENCE_THRESHOLD,
-            imgsz=640,
+            iou=0.5,              # IoU threshold untuk NMS
+            persist=True,         # Track ID persist antar frame
+            tracker="botsort.yaml",  # BoT-SORT tracker lebih stabil
             verbose=False
         )

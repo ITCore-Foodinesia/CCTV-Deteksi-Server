@@ -1,7 +1,24 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { io } from 'socket.io-client';
 
-const SOCKET_URL = import.meta.env.VITE_API_URL || '/';
+// Detect if accessed via Cloudflare tunnel (production domain)
+const isCloudflare = window.location.hostname.includes('foodiserver.my.id');
+
+// Use production API URL when accessed via Cloudflare tunnel
+const getSocketUrl = () => {
+  // If explicit VITE_API_URL is set, use it
+  if (import.meta.env.VITE_API_URL) {
+    return import.meta.env.VITE_API_URL;
+  }
+  // If accessed via Cloudflare tunnel, use the API tunnel
+  if (isCloudflare) {
+    return 'https://api.foodiserver.my.id';
+  }
+  // Local development - connect to root (Vite proxy handles routing)
+  return '/';
+};
+
+const SOCKET_URL = getSocketUrl();
 
 export const useWebSocket = () => {
   const [connected, setConnected] = useState(false);

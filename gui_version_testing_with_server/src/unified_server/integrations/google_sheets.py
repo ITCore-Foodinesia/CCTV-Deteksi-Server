@@ -261,14 +261,18 @@ class SheetsIntegration:
             if not records:
                 return None
             
-            # Calculate totals
+            # Calculate totals (sum of all rows)
             loading_count = self._sum_or_count(records, 'Loading')
             rehab_count = self._sum_or_count(records, 'Rehab')
             
-            # Find latest entry with Plat
+            # Find latest entry with Plat and extract its Loading/Rehab values
             latest_plate = 'N/A'
+            latest_loading = 0
+            latest_rehab = 0
             jam_datang = ''
             jam_selesai = ''
+            latest_driver = 'Driver'
+            latest_items = 'Items'
             
             for record in reversed(records):
                 plat = record.get('Plat', '')
@@ -276,6 +280,12 @@ class SheetsIntegration:
                     latest_plate = str(plat).strip()
                     jam_datang = str(record.get('Jam Datang', ''))
                     jam_selesai = str(record.get('Jam Selesai', ''))
+                    # Get Loading and Rehab values from this row
+                    latest_loading = _safe_int(record.get('Loading', 0))
+                    latest_rehab = _safe_int(record.get('Rehab', 0))
+                    # Get driver and items if available
+                    latest_driver = str(record.get('Driver', 'Driver')) or 'Driver'
+                    latest_items = str(record.get('Items', 'Items')) or 'Items'
                     break
             
             self._error = None
@@ -283,6 +293,10 @@ class SheetsIntegration:
                 'loading_count': loading_count,
                 'rehab_count': rehab_count,
                 'latest_plate': latest_plate,
+                'latest_loading': latest_loading,
+                'latest_rehab': latest_rehab,
+                'latest_driver': latest_driver,
+                'latest_items': latest_items,
                 'jam_datang': jam_datang,
                 'jam_selesai': jam_selesai,
                 'total_records': len(records),

@@ -371,12 +371,13 @@ def run_detector_threaded(config, callback_update=None):
         persistence_queue.clear()
         
         # Reset timer based on current status (which was updated in A)
-        if counting_active:
-            sheet_timer_start = time.time() 
+        # FIX: Do NOT start timer if plate is UNKNOWN, regardless of API status
+        if counting_active and current_plate != "UNKNOWN":
+            sheet_timer_start = time.time()
+            upload_queue.put(DetectionPayload(time.time(), current_plate, 0, 0, 0, "QR_START"))
         else:
             sheet_timer_start = None
-        
-        upload_queue.put(DetectionPayload(time.time(), current_plate, 0, 0, 0, "QR_START"))
+            counting_active = False # Force false if UNKNOWN
 
     def on_qr(data):
         nonlocal api_sync_pause_until
@@ -456,8 +457,15 @@ def run_detector_threaded(config, callback_update=None):
                         
                         if api_plate and api_plate != "UNKNOWN":
                             sync_with_api(api_plate, api_status)
-                        elif api_status == "WAITING":
-                            sync_with_api("UNKNOWN", "WAITING")
+                        elif api_status in ["WAITING", "STOP", "STOPPED", "FINISHED", "IDLE"]:
+                            # FIX: Handle STOP/WAITING even if plate is UNKNOWN/Mixed
+                            # spam fix: don't reset if we are on UNKNOWN and api says WAITING/IDLE
+                            should_sync = True
+                            if api_status in ["WAITING", "IDLE"] and current_plate == "UNKNOWN":
+                                should_sync = False
+                                
+                            if should_sync:
+                                sync_with_api("UNKNOWN", api_status)
             
             # QR Update
             if frame_count % 5 == 0:

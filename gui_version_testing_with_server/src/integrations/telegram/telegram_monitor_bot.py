@@ -48,7 +48,7 @@ QR_STANDBY_CMD = [
     "--source", "rtsp://foodinesia:tenggarong1@192.168.1.212:554/stream1",
     "--source-type", "rtsp",
     "--model", str((APP_DIR / "models" / "bestbaru.engine").resolve()),
-    "--creds", str((APP_DIR / "credentials.json").resolve()),
+    "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
     "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
     "--worksheet", "AUTO_ID"
 ]
@@ -56,7 +56,7 @@ MAIN_CMD = [
     "python", MAIN_PATH,
     "--source", "rtsp://foodinesia:tenggarong1@192.168.1.212:554/stream1",
     "--model", str((APP_DIR / "models" / "bestbaru.engine").resolve()),
-    "--creds", str((APP_DIR / "credentials.json").resolve()),
+    "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
     "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
     "--worksheet", "AUTO_ID",
     "--plate", "UNKNOWN",  # Untuk mode plat unknown
@@ -67,7 +67,7 @@ MAIN_CMD = [
 # Google Sheets configuration
 SHEET_ID = "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM"
 WORKSHEET_NAME = "AUTO_ID"
-CREDS_FILE = str((APP_DIR / "credentials.json").resolve())
+CREDS_FILE = str((APP_DIR / "config" / "credentials.json").resolve())
 
 def remove_emoji(text):
     """Remove emoji characters that cause encoding issues"""
@@ -454,7 +454,7 @@ def start_main_v2():
             "python", MAIN_V2_PATH,
             "--source", "rtsp://foodinesia:tenggarong1@192.168.1.212:554/stream1",
             "--model", str((APP_DIR / "models" / "bestbaru4050.pt").resolve()),
-            "--creds", str((APP_DIR / "credentials.json").resolve()),
+            "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
             "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
             "--worksheet", "AUTO_ID",
             "--plate", last_state.get('plate', 'UNKNOWN'),
@@ -512,7 +512,7 @@ def start_main_v3():
             "python", "-m", MAIN_V3_MODULE,
             "--source", "rtsp://foodinesia:tenggarong1@192.168.1.212:554/stream1",
             "--model", str((APP_DIR / "models" / "bestbaru.engine").resolve()),
-            "--creds", str((APP_DIR / "credentials.json").resolve()),
+            "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
             "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
             "--worksheet", "AUTO_ID",
             "--plate", last_state.get('plate', 'UNKNOWN'),

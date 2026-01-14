@@ -5,6 +5,7 @@ import threading
 import time
 import json
 import datetime
+import requests
 from pathlib import Path
 
 import tkinter as tk
@@ -644,7 +645,7 @@ class ControlPanel(tk.Tk):
 
     def toggle_main_v3(self) -> None:
         """Menjalankan Main V3 (Multiprocessing Architecture)"""
-        if is_process_running("src.detection.gui_version_partial.main") or is_process_running("gui_version_partial.main") or is_process_running("main.py"): 
+        if is_process_running("src.detection.gui_version_partial.main") or is_process_running("gui_version_partial.main") or is_process_running("main.py"):
             self.stop_main_v3()
         else:
             try:
@@ -710,9 +711,9 @@ class ControlPanel(tk.Tk):
                 )
                 self.log("Main V3 telah dijalankan di window baru.")
                 
-                # Auto-start Unified Server for dashboard streaming
-                time.sleep(2)  # Wait for Main V3 to start
-                self._start_unified_server()
+                # Send status to Unified Server (if running)
+                self._notify_unified_server_status("STARTING", self.entry_plate.get().strip())
+                self.log("Note: Start Unified Server manually for dashboard streaming (port 5001)")
             except Exception as e:
                 messagebox.showerror("Gagal V3", str(e))
 
@@ -747,6 +748,46 @@ class ControlPanel(tk.Tk):
         except Exception as e:
             self.log(f"Warning: Failed to start Unified Server: {e}")
             self.log("You may need to start it manually for dashboard streaming.")
+
+    def _notify_unified_server_status(self, status: str, plate: str) -> None:
+        """
+        Send status update to Unified Server for dashboard display.
+        
+        This allows the dashboard to show current detection status
+        without requiring the full telegram integration.
+        
+        Args:
+            status: Current status (STARTING, RUNNING, STOPPED, etc.)
+            plate: Current plate number being processed
+        """
+        try:
+            # Try to notify Unified Server (non-blocking)
+            def send_notification():
+                try:
+                    response = requests.post(
+                        "http://localhost:5001/api/telegram_update",
+                        json={
+                            "plate": plate or "UNKNOWN",
+                            "status": status,
+                            "source": "control_panel",
+                            "v4_enabled": self.v4_enabled,
+                        },
+                        timeout=2.0
+                    )
+                    if response.status_code == 200:
+                        self.log(f"[Unified] Status sent: {status} / {plate}")
+                except requests.exceptions.ConnectionError:
+                    # Unified Server not running - that's OK
+                    pass
+                except Exception as e:
+                    self.log(f"[Unified] Warning: {e}")
+            
+            # Run in background thread to not block UI
+            threading.Thread(target=send_notification, daemon=True).start()
+            
+        except Exception as e:
+            # Non-critical, just log
+            self.log(f"[Unified] Notify failed: {e}")
 
     def open_log(self) -> None:
         logfile = APP_DIR / "logs" / "monitor_log.txt"

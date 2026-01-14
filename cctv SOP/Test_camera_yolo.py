@@ -3,13 +3,13 @@ from collections import defaultdict
 
 from core.camera import Camera
 from core.detector import SOPDetector
-from config.settings import CONFIDENCE_THRESHOLD
+from config.settings import CONFIDENCE_THRESHOLD, MIN_BOX_AREA
 
 # ==============================
 # CONFIG
 # ==============================
 CAMERA_INDEX = 0
-STABLE_FRAMES = 8
+STABLE_FRAMES = 12  # naik dari 8 untuk kurangi noise
 FONT = cv2.FONT_HERSHEY_SIMPLEX
 
 def main():
@@ -45,6 +45,11 @@ def main():
                 label = r.names[cls_id]
 
                 x1, y1, x2, y2 = map(int, box.xyxy[0])
+
+                # filter box yang terlalu kecil (noise)
+                box_area = (x2 - x1) * (y2 - y1)
+                if box_area < MIN_BOX_AREA:
+                    continue
 
                 detected_this_frame.add(label)
 

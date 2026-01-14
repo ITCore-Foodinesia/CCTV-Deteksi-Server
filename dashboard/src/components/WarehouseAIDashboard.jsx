@@ -47,9 +47,10 @@ const WarehouseAIDashboard = () => {
     return isNaN(parsed) ? fallback : parsed;
   };
 
-  // Use loading_count/rehab_count OR latest_loading/latest_rehab (depending on what API sends)
-  const barangMasuk = parseValue(sheetsData.loading_count, parseValue(sheetsData.latest_loading, stats.inbound || 0));
-  const barangKeluar = parseValue(sheetsData.rehab_count, parseValue(sheetsData.latest_rehab, stats.outbound || 0));
+  // Use latest_loading/latest_rehab (from last row of spreadsheet) - these are the "last truck" values
+  // Fallback to loading_count/rehab_count (sum of all rows) if latest values are 0
+  const barangMasuk = parseValue(sheetsData.latest_loading, 0) || parseValue(sheetsData.loading_count, stats.inbound || 0);
+  const barangKeluar = parseValue(sheetsData.latest_rehab, 0) || parseValue(sheetsData.rehab_count, stats.outbound || 0);
   const totalLoading = barangMasuk + barangKeluar;
 
   // DEBUG: Log values to identify source of 28/20
@@ -102,7 +103,7 @@ const WarehouseAIDashboard = () => {
     {
       icon: Box,
       label: 'Kapasitas',
-      value: `${stats.capacity}%`,
+      value: `${stats.capacity ?? 84}%`,
       badge: 'Hampir Penuh',
       bgColor: 'bg-amber-100/50 border-amber-100',
       iconColor: 'text-amber-600',

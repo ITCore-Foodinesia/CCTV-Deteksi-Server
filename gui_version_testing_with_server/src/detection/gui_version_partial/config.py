@@ -51,8 +51,17 @@ def load_config():
     # Validation / Default Path Fixes
     if not os.path.isabs(args.model) and os.path.exists(args.model):
         args.model = os.path.abspath(args.model)
-        
+    elif not os.path.exists(args.model):
+         alt_path = os.path.join("models", args.model)
+         if os.path.exists(alt_path):
+             args.model = os.path.abspath(alt_path)
+             
     if not os.path.isabs(args.creds) and os.path.exists(args.creds):
         args.creds = os.path.abspath(args.creds)
-        
+    elif not os.path.exists(args.creds):
+         # Try looking in config/ folder
+         alt_path = os.path.join("config", args.creds)
+         if os.path.exists(alt_path):
+             args.creds = os.path.abspath(alt_path)
+             
     return args

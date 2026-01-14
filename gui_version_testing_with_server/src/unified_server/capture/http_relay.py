@@ -288,6 +288,11 @@ class StreamCaptureRelay:
         """Get stats."""
         return self._relay.get_stats()
     
+    @property
+    def stats(self) -> Dict[str, Any]:
+        """Get stats as property (for TUI compatibility)."""
+        return self._relay.get_stats()
+    
     # Methods for compatibility with StreamCapture interface
     def set_detection_enabled(self, enabled: bool) -> None:
         """No-op: detection is handled by Main V3."""

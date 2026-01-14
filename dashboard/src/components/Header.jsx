@@ -2,7 +2,8 @@ import React from 'react';
 import { Video, Wifi, ShieldCheck, WifiOff } from 'lucide-react';
 
 const Header = ({ connected, status }) => {
-  const isConnected = status === 'Connected';
+  // System is online if status indicates streaming/connected OR if WebSocket is connected
+  const isConnected = status === 'Connected' || status === 'Streaming' || connected;
   const wsConnected = connected;
 
   return (
