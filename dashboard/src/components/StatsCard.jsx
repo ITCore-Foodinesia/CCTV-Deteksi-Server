@@ -6,6 +6,10 @@ const StatsCard = ({ icon: Icon, label, value, badge, bgColor, iconColor, badgeC
       <div className={`absolute right-0 top-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity`}>
         <Icon className={`w-12 h-12 ${iconColor}`} />
       </div>
+      {/* Icon logo visible di pojok kiri atas */}
+      <div className={`mb-2`}>
+        <Icon className={`w-8 h-8 ${iconColor}`} />
+      </div>
       <span className={`text-[10px] font-bold ${iconColor} uppercase tracking-wider mb-1`}>
         {label}
       </span>

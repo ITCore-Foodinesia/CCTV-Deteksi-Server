@@ -47,10 +47,10 @@ const WarehouseAIDashboard = () => {
     return isNaN(parsed) ? fallback : parsed;
   };
 
-  // Use loading_count/rehab_count OR latest_loading/latest_rehab (depending on what API sends)
-  const barangMasuk = parseValue(sheetsData.loading_count, parseValue(sheetsData.latest_loading, stats.inbound || 0));
-  const barangKeluar = parseValue(sheetsData.rehab_count, parseValue(sheetsData.latest_rehab, stats.outbound || 0));
-  const totalLoading = barangMasuk + barangKeluar;
+  // Use latest_loading/latest_rehab from last row (prioritize over totals)
+  const barangMasuk = parseValue(sheetsData.latest_loading, parseValue(sheetsData.loading_count, stats.inbound || 0));
+  const barangKeluar = parseValue(sheetsData.latest_rehab, parseValue(sheetsData.rehab_count, stats.outbound || 0));
+  const totalLoading = barangMasuk - barangKeluar;
 
   // DEBUG: Log values to identify source of 28/20
   console.log('DEBUG Stats:', {
@@ -101,9 +101,9 @@ const WarehouseAIDashboard = () => {
     },
     {
       icon: Box,
-      label: 'Kapasitas',
-      value: `${stats.capacity}%`,
-      badge: 'Hampir Penuh',
+      label: 'Loading Truk Terakhir',
+      value: activeLoadingTruck.plate,
+      badge: sheetsData.latest_plate !== 'N/A' && sheetsData.latest_plate ? `Loading: ${barangMasuk} | Rehab: ${barangKeluar}` : 'Tidak Ada Data',
       bgColor: 'bg-amber-100/50 border-amber-100',
       iconColor: 'text-amber-600',
       badgeColor: 'bg-amber-200/50',
@@ -140,36 +140,23 @@ const WarehouseAIDashboard = () => {
           <div className="lg:col-span-4 flex flex-col gap-6 overflow-hidden">
 
             {/* LOADING DOCK CARD - BIG */}
-            <div className="bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex flex-col relative overflow-hidden group min-h-[180px] justify-between">
+            <div className="bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex flex-col relative overflow-hidden group min-h-[180px] justify-center items-center">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Truck className="w-20 h-20 text-violet-600" />
               </div>
 
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Loader2 className="w-4 h-4 text-violet-600 animate-spin" />
+              <div className="text-center z-10">
+                <div className="flex items-center justify-center gap-2 mb-3">
+                  <Loader2 className="w-5 h-5 text-violet-400" />
                   <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">
-                    Loading {activeLoadingTruck.dock}
-                  </span>
-                  <span className="ml-auto bg-violet-200/50 text-violet-700 text-sm font-bold px-3 py-1 rounded-full border border-violet-200">
-                    {activeLoadingTruck.progress}%
+                    Loading Dock
                   </span>
                 </div>
 
-                <h3 className="text-4xl font-black text-violet-900 mb-2">{activeLoadingTruck.plate}</h3>
+                <h3 className="text-2xl font-black text-violet-900 mb-2">Tidak Ada Loading</h3>
                 <p className="text-sm font-medium text-violet-700">
-                  {activeLoadingTruck.driver} • {activeLoadingTruck.items}
+                  Semua dock tersedia
                 </p>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-white/40 h-3 rounded-full overflow-hidden backdrop-blur-sm border border-white/20 mt-4">
-                <div
-                  className="h-full bg-violet-500 rounded-full transition-all duration-1000 ease-out relative"
-                  style={{ width: `${activeLoadingTruck.progress}%` }}
-                >
-                  <div className="absolute inset-0 bg-white/30 animate-pulse"></div>
-                </div>
               </div>
             </div>
 
