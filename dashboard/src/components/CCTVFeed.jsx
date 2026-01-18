@@ -3,7 +3,8 @@ import { Camera, Maximize2, AlertCircle, Loader2 } from 'lucide-react';
 import { getDirectStreamUrl, getStreamUrl } from '../services/api';
 
 const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency }) => {
-  const glassCard = "bg-white/70 backdrop-blur-2xl border border-white/80 shadow-sm rounded-[2rem]";
+  // Responsive glass card - smaller radius on mobile
+  const glassCard = "bg-white/70 backdrop-blur-2xl border border-white/80 shadow-sm rounded-xl md:rounded-[2rem]";
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
   const primaryStreamUrl = useMemo(() => getStreamUrl(), []);
@@ -72,32 +73,32 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
 
   return (
     <div className={`${glassCard} flex flex-col relative overflow-hidden`}>
-      {/* Header */}
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      {/* Header - Compact on mobile */}
+      <div className="flex items-center justify-between px-3 md:px-5 py-2 md:py-4 border-b border-gray-100">
         <div className="flex items-center gap-2">
-          <Camera className="w-5 h-5 text-gray-500" />
-          <span className="font-semibold text-gray-800">Camera {activeCamera}</span>
+          <Camera className="w-4 h-4 md:w-5 md:h-5 text-gray-500" />
+          <span className="font-semibold text-gray-800 text-sm md:text-base">Camera {activeCamera}</span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 md:gap-2">
           <button
             onClick={handleSwitchCamera}
-            className="px-4 py-2 text-sm font-medium text-emerald-600 border border-emerald-500 rounded-lg hover:bg-emerald-50 transition-colors"
+            className="px-2 md:px-4 py-1.5 md:py-2 text-xs md:text-sm font-medium text-emerald-600 border border-emerald-500 rounded-lg hover:bg-emerald-50 transition-colors"
             disabled={!isLive}
           >
             Switch Camera
           </button>
           <button
             onClick={handleFullscreen}
-            className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+            className="p-1.5 md:p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
             disabled={!isLive || !imageLoaded}
           >
-            <Maximize2 className="w-5 h-5" />
+            <Maximize2 className="w-4 h-4 md:w-5 md:h-5" />
           </button>
         </div>
       </div>
 
-      {/* Video Container - Responsive with max height constraint */}
-      <div id="cctv-container" className="relative bg-slate-900 overflow-hidden flex items-center justify-center" style={{ maxHeight: 'calc(100vh - 280px)' }}>
+      {/* Video Container - Responsive with aspect ratio */}
+      <div id="cctv-container" className="relative bg-slate-900 overflow-hidden flex items-center justify-center aspect-video">
         {!imageError ? (
           <>
             {/* Loading Indicator */}
@@ -151,16 +152,16 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
         )}
       </div>
 
-      {/* Footer - Status Bar */}
-      <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm">
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
+      {/* Footer - Status Bar - Compact on mobile */}
+      <div className="flex items-center justify-between px-3 md:px-5 py-2 md:py-3 border-t border-gray-100 text-xs md:text-sm">
+        <div className="flex items-center gap-1.5 md:gap-2">
+          <span className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${isLive ? 'bg-emerald-500' : 'bg-gray-400'}`}></span>
           <span className={`font-medium ${isLive ? 'text-emerald-600' : 'text-gray-500'}`}>
             {isLive ? 'Detection Active' : 'Offline'}
           </span>
         </div>
-        <div className="flex items-center gap-4 text-gray-500">
-          <span>Resolution: <span className="font-medium text-gray-700">1920×1080</span></span>
+        <div className="flex items-center gap-2 md:gap-4 text-gray-500">
+          <span className="hidden sm:inline">Resolution: <span className="font-medium text-gray-700">1920×1080</span></span>
           <span>FPS: <span className="font-medium text-gray-700">{fps > 0 ? fps : 30}</span></span>
         </div>
       </div>

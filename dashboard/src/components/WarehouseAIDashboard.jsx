@@ -38,7 +38,8 @@ const WarehouseAIDashboard = () => {
     driver: sheetsData.latest_driver || 'Driver'
   };
 
-  const glassCard = "bg-white/70 backdrop-blur-2xl border border-white/80 shadow-sm rounded-[2rem]";
+  // Responsive glass card - smaller radius on mobile
+  const glassCard = "bg-white/70 backdrop-blur-2xl border border-white/80 shadow-sm rounded-xl md:rounded-[2rem]";
 
   // Helper function to safely parse values
   const parseValue = (val, fallback) => {
@@ -161,36 +162,36 @@ const WarehouseAIDashboard = () => {
     <div className="min-h-screen bg-slate-200">
       {/* Centered container with max-width for compact layout */}
       {/* Outer: slate-200 (gray), Inner: cream (#F5F7F2) */}
-      <div className="max-w-7xl mx-auto p-3 md:p-4 font-sans text-slate-600 flex flex-col h-screen overflow-hidden bg-[#F5F7F2] shadow-xl">
+      <div className="max-w-7xl mx-auto p-2 md:p-4 font-sans text-slate-600 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden bg-[#F5F7F2] shadow-xl">
         <Header connected={connected} status={status} />
 
-        <div className="flex-1 flex flex-col gap-4 overflow-hidden pb-2">
-          {/* STATS ROW - 5 Cards */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 flex-shrink-0">
+        {/* Mobile: scrollable, Desktop: fixed layout */}
+        <div className="flex-1 flex flex-col gap-3 md:gap-4 overflow-y-auto lg:overflow-hidden pb-2">
+          {/* STATS ROW - 2 cols mobile, 5 cols desktop */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 flex-shrink-0">
             {statsConfig.map((stat, index) => (
               <StatsCard key={index} {...stat} compact={true} />
             ))}
           </div>
 
-          {/* MAIN CONTENT GRID */}
-          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
-            {/* LEFT: CCTV Feed (8 cols) */}
-            <div className="lg:col-span-8 flex flex-col overflow-y-auto scrollbar-hide pr-2">
+          {/* MAIN CONTENT - Stack on mobile, grid on desktop */}
+          <div className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-3 md:gap-4 lg:overflow-hidden">
+            {/* CCTV Feed - Full width on mobile, 8 cols on desktop */}
+            <div className="lg:col-span-8 flex flex-col lg:overflow-y-auto scrollbar-hide lg:pr-2">
+              <CCTVFeed
+                activeCamera={activeCamera}
+                setActiveCamera={setActiveCamera}
+                streamStatus={status}
+                fps={stats.fps}
+                latency={stats.latency}
+              />
+            </div>
 
-            <CCTVFeed
-              activeCamera={activeCamera}
-              setActiveCamera={setActiveCamera}
-              streamStatus={status}
-              fps={stats.fps}
-              latency={stats.latency}
-            />
-          </div>
+            {/* Sidebar - Stack below CCTV on mobile, 4 cols on desktop */}
+            <div className="lg:col-span-4 flex flex-col gap-3 md:gap-4 lg:overflow-hidden">
 
-          {/* RIGHT: Loading Dock + Activity Logs (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6 overflow-hidden">
-
-            {/* LOADING DOCK CARD - BIG */}
-            <div className="bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex flex-col relative overflow-hidden group min-h-[180px] justify-center items-center">
+              {/* LOADING DOCK CARD - Compact on mobile */}
+              <div className="bg-violet-100/50 border border-violet-100 p-4 md:p-6 rounded-xl md:rounded-[2rem] flex flex-col relative overflow-hidden group min-h-[120px] md:min-h-[160px] justify-center items-center flex-shrink-0">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Truck className="w-20 h-20 text-violet-600" />
               </div>
