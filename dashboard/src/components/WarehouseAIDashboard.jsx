@@ -175,8 +175,8 @@ const WarehouseAIDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-200">
       {/* Centered container with max-width for compact layout */}
-      {/* Outer: slate-200 (gray), Inner: cream (#F5F7F2) */}
-      <div className="max-w-7xl mx-auto p-2 md:p-4 font-sans text-slate-600 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden bg-[#F5F7F2] shadow-xl">
+      {/* max-w-5xl = 1024px (approximately 80% of 1280px) for tighter layout */}
+      <div className="max-w-4xl mx-auto p-2 md:p-4 font-sans text-slate-600 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden bg-[#F5F7F2] shadow-xl">
         <Header connected={connected} status={status} />
 
         {/* Mobile: scrollable, Desktop: fixed layout */}
