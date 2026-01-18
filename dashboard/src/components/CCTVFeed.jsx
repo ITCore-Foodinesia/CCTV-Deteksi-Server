@@ -96,8 +96,8 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
         </div>
       </div>
 
-      {/* Video Container */}
-      <div id="cctv-container" className="relative bg-slate-900 overflow-hidden">
+      {/* Video Container - Responsive with max height constraint */}
+      <div id="cctv-container" className="relative bg-slate-900 overflow-hidden flex items-center justify-center" style={{ maxHeight: 'calc(100vh - 280px)' }}>
         {!imageError ? (
           <>
             {/* Loading Indicator */}
@@ -110,11 +110,11 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
               </div>
             )}
 
-            {/* CCTV Stream Image */}
+            {/* CCTV Stream Image - object-contain ensures full image visible */}
             <img
               src={streamUrl}
               alt="CCTV Stream"
-              className="w-full h-auto block"
+              className="w-full h-auto max-h-full object-contain block"
               onLoad={() => setImageLoaded(true)}
               onError={handleStreamError}
               style={{ display: imageLoaded ? 'block' : 'none' }}
@@ -141,7 +141,7 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
           </>
         ) : (
           /* Error/Offline State */
-          <div className="flex items-center justify-center bg-slate-900 aspect-video">
+          <div className="flex items-center justify-center bg-slate-900 aspect-video w-full">
             <div className="text-center text-white">
               <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
               <p className="text-lg font-bold mb-2">Stream Error</p>

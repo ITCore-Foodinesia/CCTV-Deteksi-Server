@@ -158,21 +158,24 @@ const WarehouseAIDashboard = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F7F2] p-4 md:p-6 font-sans text-slate-600 flex flex-col h-screen overflow-hidden">
-      <Header connected={connected} status={status} />
+    <div className="min-h-screen bg-slate-200">
+      {/* Centered container with max-width for compact layout */}
+      {/* Outer: slate-200 (gray), Inner: cream (#F5F7F2) */}
+      <div className="max-w-7xl mx-auto p-3 md:p-4 font-sans text-slate-600 flex flex-col h-screen overflow-hidden bg-[#F5F7F2] shadow-xl">
+        <Header connected={connected} status={status} />
 
-      <div className="flex-1 flex flex-col gap-6 overflow-hidden pb-2">
-        {/* STATS ROW - 5 Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 flex-shrink-0">
-          {statsConfig.map((stat, index) => (
-            <StatsCard key={index} {...stat} />
-          ))}
-        </div>
+        <div className="flex-1 flex flex-col gap-4 overflow-hidden pb-2">
+          {/* STATS ROW - 5 Cards */}
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 flex-shrink-0">
+            {statsConfig.map((stat, index) => (
+              <StatsCard key={index} {...stat} compact={true} />
+            ))}
+          </div>
 
-        {/* MAIN CONTENT GRID */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
-          {/* LEFT: CCTV Feed (8 cols) */}
-          <div className="lg:col-span-8 flex flex-col overflow-y-auto scrollbar-hide pr-2">
+          {/* MAIN CONTENT GRID */}
+          <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-4 overflow-hidden">
+            {/* LEFT: CCTV Feed (8 cols) */}
+            <div className="lg:col-span-8 flex flex-col overflow-y-auto scrollbar-hide pr-2">
 
             <CCTVFeed
               activeCamera={activeCamera}
@@ -242,6 +245,7 @@ const WarehouseAIDashboard = () => {
             </div>
 
           </div>
+        </div>
         </div>
       </div>
     </div>
