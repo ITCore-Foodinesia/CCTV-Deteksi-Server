@@ -149,14 +149,28 @@ const WarehouseAIDashboard = () => {
       icon: Box,
       label: 'Loading Truk Terakhir',
       value: loadingStatus.lastCompletedPlate,
-      badge: loadingStatus.isCompleted 
-        ? `Loading: ${barangMasuk} | Rehab: ${barangKeluar}` 
+      badge: loadingStatus.isCompleted
+        ? `Loading: ${barangMasuk} | Rehab: ${barangKeluar}`
         : 'Tidak Ada Data',
       bgColor: 'bg-amber-100/50 border-amber-100',
       iconColor: 'text-amber-600',
       badgeColor: 'bg-amber-200/50',
     },
   ];
+
+  // Mobile-only Loading Dock stat card config
+  const loadingDockStatCard = {
+    icon: Loader2,
+    label: 'Loading Dock',
+    value: loadingStatus.isActiveLoading ? loadingStatus.activePlate : 'Tidak Ada Loading',
+    badge: loadingStatus.isActiveLoading
+      ? `Sedang Loading • ${loadingStatus.arrivalTime}`
+      : 'Semua dock tersedia',
+    bgColor: 'bg-violet-100/50 border-violet-100',
+    iconColor: 'text-violet-600',
+    badgeColor: 'bg-violet-200/50',
+    isAnimated: loadingStatus.isActiveLoading, // For spinning icon
+  };
 
   return (
     <div className="min-h-screen bg-slate-200">
@@ -167,11 +181,15 @@ const WarehouseAIDashboard = () => {
 
         {/* Mobile: scrollable, Desktop: fixed layout */}
         <div className="flex-1 flex flex-col gap-3 md:gap-4 overflow-y-auto lg:overflow-hidden pb-2">
-          {/* STATS ROW - 2 cols mobile, 5 cols desktop */}
+          {/* STATS ROW - 2 cols mobile (6 cards: 5 + Loading Dock), 5 cols desktop (5 cards only) */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 flex-shrink-0">
             {statsConfig.map((stat, index) => (
               <StatsCard key={index} {...stat} compact={true} />
             ))}
+            {/* Loading Dock as 6th stat card - MOBILE ONLY */}
+            <div className="md:hidden">
+              <StatsCard {...loadingDockStatCard} compact={true} />
+            </div>
           </div>
 
           {/* MAIN CONTENT - Stack on mobile, grid on desktop */}
@@ -190,8 +208,8 @@ const WarehouseAIDashboard = () => {
             {/* Sidebar - Stack below CCTV on mobile, 4 cols on desktop */}
             <div className="lg:col-span-4 flex flex-col gap-3 md:gap-4 lg:overflow-hidden">
 
-              {/* LOADING DOCK CARD - Compact on mobile */}
-              <div className="bg-violet-100/50 border border-violet-100 p-4 md:p-6 rounded-xl md:rounded-[2rem] flex flex-col relative overflow-hidden group min-h-[120px] md:min-h-[160px] justify-center items-center flex-shrink-0">
+              {/* LOADING DOCK CARD - DESKTOP ONLY (big card) */}
+              <div className="hidden lg:flex bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex-col relative overflow-hidden group min-h-[160px] justify-center items-center flex-shrink-0">
               <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
                 <Truck className="w-20 h-20 text-violet-600" />
               </div>
