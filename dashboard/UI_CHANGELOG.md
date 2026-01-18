@@ -4,6 +4,72 @@ Dokumentasi perubahan UI pada Warehouse AI Dashboard.
 
 ---
 
+## 2026-01-18: Loading Dock Status Logic
+
+### **Dynamic Loading Dock Display Based on Jam Datang/Jam Selesai**
+
+**Files Modified:**
+
+- [`src/hooks/useWebSocket.js`](src/hooks/useWebSocket.js)
+- [`src/components/WarehouseAIDashboard.jsx`](src/components/WarehouseAIDashboard.jsx)
+
+**Implementation Plan:** [`plans/LOADING_DOCK_STATUS_IMPLEMENTATION.md`](../plans/LOADING_DOCK_STATUS_IMPLEMENTATION.md)
+
+**Logic Rules:**
+
+| State               | Kondisi                              | Loading Dock Card                                     | Stat Card "Loading Truk Terakhir" |
+| ------------------- | ------------------------------------ | ----------------------------------------------------- | --------------------------------- |
+| **Sedang Loading**  | `jam_datang` ✅ AND `jam_selesai` ❌ | 🟡 Amber bg, Plat Number, "Sedang Loading • HH:MM:SS" | Plat sebelumnya atau N/A          |
+| **Selesai Loading** | `jam_datang` ✅ AND `jam_selesai` ✅ | 🟣 Violet bg, "Tidak Ada Loading"                     | ✅ Plat yang baru selesai         |
+| **Tidak Ada Data**  | `jam_datang` ❌                      | 🟣 Violet bg, "Tidak Ada Loading"                     | N/A                               |
+
+**Perubahan Detail:**
+
+1. **useWebSocket.js** - Added `jam_datang` and `jam_selesai` to initial state:
+
+   ```javascript
+   const [sheetsData, setSheetsData] = useState({
+     // ... existing fields
+     jam_datang: "", // Arrival time - used to detect active loading
+     jam_selesai: "", // Completion time - used to detect completed loading
+   });
+   ```
+
+2. **WarehouseAIDashboard.jsx** - Added `getLoadingStatus()` helper function:
+
+   ```javascript
+   const getLoadingStatus = () => {
+     const jamDatang = sheetsData.jam_datang?.trim() || '';
+     const jamSelesai = sheetsData.jam_selesai?.trim() || '';
+     const plate = sheetsData.latest_plate || 'N/A';
+
+     if (jamDatang && !jamSelesai) {
+       return { isActiveLoading: true, activePlate: plate, ... };
+     }
+     if (jamDatang && jamSelesai) {
+       return { isActiveLoading: false, lastCompletedPlate: plate, ... };
+     }
+     return { isActiveLoading: false, lastCompletedPlate: 'N/A', ... };
+   };
+   ```
+
+3. **Loading Dock Card** - Now dynamic with amber/violet color scheme:
+   - Active: Amber background, shows plate number with "Sedang Loading • arrival_time"
+   - Idle: Violet background, shows "Tidak Ada Loading"
+   - Loader icon spins when active loading
+
+4. **Stats Card "Loading Truk Terakhir"** - Now shows last COMPLETED truck:
+   - Uses `loadingStatus.lastCompletedPlate` instead of current plate
+   - Badge shows loading/rehab counts only when completed
+
+**Visual Impact:**
+
+- Loading Dock card now visually indicates when a truck is actively loading
+- Clear distinction between "active loading" (amber) and "no loading" (violet) states
+- Spinner animation on Loader2 icon during active loading
+
+---
+
 ## 2026-01-17: UI Enhancement & Data Display Fix
 
 ### 1. **Penambahan Logo Icon pada Stat Cards**

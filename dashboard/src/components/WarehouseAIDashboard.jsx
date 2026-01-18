@@ -47,6 +47,51 @@ const WarehouseAIDashboard = () => {
     return isNaN(parsed) ? fallback : parsed;
   };
 
+  /**
+   * Determine loading status based on jam_datang and jam_selesai
+   * - Active Loading: jam_datang exists AND jam_selesai is empty
+   * - Completed: both jam_datang AND jam_selesai exist
+   * - No Data: jam_datang is empty
+   */
+  const getLoadingStatus = () => {
+    const jamDatang = sheetsData.jam_datang?.trim() || '';
+    const jamSelesai = sheetsData.jam_selesai?.trim() || '';
+    const plate = sheetsData.latest_plate || 'N/A';
+    
+    // Case 1: Has arrival time but no completion time = Currently Loading
+    if (jamDatang && !jamSelesai) {
+      return {
+        isActiveLoading: true,
+        isCompleted: false,
+        activePlate: plate,
+        lastCompletedPlate: 'N/A',
+        arrivalTime: jamDatang,
+      };
+    }
+    
+    // Case 2: Has both arrival and completion time = Completed
+    if (jamDatang && jamSelesai) {
+      return {
+        isActiveLoading: false,
+        isCompleted: true,
+        activePlate: null,
+        lastCompletedPlate: plate,
+        arrivalTime: jamDatang,
+      };
+    }
+    
+    // Case 3: No data
+    return {
+      isActiveLoading: false,
+      isCompleted: false,
+      activePlate: null,
+      lastCompletedPlate: 'N/A',
+      arrivalTime: '',
+    };
+  };
+
+  const loadingStatus = getLoadingStatus();
+
   // Use latest_loading/latest_rehab from last row (prioritize over totals)
   const barangMasuk = parseValue(sheetsData.latest_loading, parseValue(sheetsData.loading_count, stats.inbound || 0));
   const barangKeluar = parseValue(sheetsData.latest_rehab, parseValue(sheetsData.rehab_count, stats.outbound || 0));
@@ -102,8 +147,10 @@ const WarehouseAIDashboard = () => {
     {
       icon: Box,
       label: 'Loading Truk Terakhir',
-      value: activeLoadingTruck.plate,
-      badge: sheetsData.latest_plate !== 'N/A' && sheetsData.latest_plate ? `Loading: ${barangMasuk} | Rehab: ${barangKeluar}` : 'Tidak Ada Data',
+      value: loadingStatus.lastCompletedPlate,
+      badge: loadingStatus.isCompleted 
+        ? `Loading: ${barangMasuk} | Rehab: ${barangKeluar}` 
+        : 'Tidak Ada Data',
       bgColor: 'bg-amber-100/50 border-amber-100',
       iconColor: 'text-amber-600',
       badgeColor: 'bg-amber-200/50',
@@ -147,16 +194,27 @@ const WarehouseAIDashboard = () => {
 
               <div className="text-center z-10">
                 <div className="flex items-center justify-center gap-2 mb-3">
-                  <Loader2 className="w-5 h-5 text-violet-400" />
+                  <Loader2 className={`w-5 h-5 text-violet-400 ${loadingStatus.isActiveLoading ? 'animate-spin' : ''}`} />
                   <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">
                     Loading Dock
                   </span>
                 </div>
 
-                <h3 className="text-2xl font-black text-violet-900 mb-2">Tidak Ada Loading</h3>
-                <p className="text-sm font-medium text-violet-700">
-                  Semua dock tersedia
-                </p>
+                {loadingStatus.isActiveLoading ? (
+                  <>
+                    <h3 className="text-2xl font-black text-violet-900 mb-2">{loadingStatus.activePlate}</h3>
+                    <p className="text-sm font-medium text-violet-700">
+                      Sedang Loading • {loadingStatus.arrivalTime}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="text-2xl font-black text-violet-900 mb-2">Tidak Ada Loading</h3>
+                    <p className="text-sm font-medium text-violet-700">
+                      Semua dock tersedia
+                    </p>
+                  </>
+                )}
               </div>
             </div>
 

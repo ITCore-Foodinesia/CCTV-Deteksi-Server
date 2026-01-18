@@ -23,6 +23,8 @@ export const useWebSocket = () => {
     rehab_count: 0,
     latest_loading: 0,  // Last row loading value
     latest_rehab: 0,    // Last row rehab value
+    jam_datang: '',     // Arrival time - used to detect active loading
+    jam_selesai: '',    // Completion time - used to detect completed loading
   });
 
   const socketRef = useRef(null);
