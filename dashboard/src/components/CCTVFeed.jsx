@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Camera, Maximize2, AlertCircle, Loader2 } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { Camera, Maximize2, AlertCircle, Loader2, RefreshCw, WifiOff } from 'lucide-react';
 import { getDirectStreamUrl, getStreamUrl } from '../services/api';
 
 const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency }) => {
@@ -12,6 +12,8 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
   const [streamUrl, setStreamUrl] = useState(primaryStreamUrl);
   const [fallbackTried, setFallbackTried] = useState(false);
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [retryCount, setRetryCount] = useState(0);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   // Update timestamp every second
   useEffect(() => {
@@ -58,7 +60,28 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
       return;
     }
     setImageError(true);
+    setIsRetrying(false);
   };
+
+  // Retry stream connection
+  const handleRetry = useCallback(() => {
+    setIsRetrying(true);
+    setImageError(false);
+    setImageLoaded(false);
+    setFallbackTried(false);
+    setRetryCount(prev => prev + 1);
+    
+    // Add cache-busting timestamp to force reload
+    const timestamp = Date.now();
+    setStreamUrl(`${primaryStreamUrl}${primaryStreamUrl.includes('?') ? '&' : '?'}t=${timestamp}`);
+    
+    // Timeout to show error if stream doesn't load
+    setTimeout(() => {
+      if (!imageLoaded) {
+        setIsRetrying(false);
+      }
+    }, 10000); // 10 second timeout
+  }, [primaryStreamUrl, imageLoaded]);
 
   // Format timestamp
   const formatTimestamp = (date) => {
@@ -141,12 +164,39 @@ const CCTVFeed = ({ activeCamera, setActiveCamera, streamStatus, fps, latency })
             )}
           </>
         ) : (
-          /* Error/Offline State */
+          /* Error/Offline State with Retry Button */
           <div className="flex items-center justify-center bg-slate-900 aspect-video w-full">
-            <div className="text-center text-white">
-              <AlertCircle className="w-16 h-16 mx-auto mb-4 text-red-500" />
-              <p className="text-lg font-bold mb-2">Stream Error</p>
-              <p className="text-sm text-gray-400">Failed to load video stream</p>
+            <div className="text-center text-white px-4">
+              {isRetrying ? (
+                <>
+                  <Loader2 className="w-16 h-16 mx-auto mb-4 text-blue-500 animate-spin" />
+                  <p className="text-lg font-bold mb-2">Reconnecting...</p>
+                  <p className="text-sm text-gray-400">Attempting to restore stream connection</p>
+                </>
+              ) : (
+                <>
+                  <div className="relative inline-block mb-4">
+                    <WifiOff className="w-16 h-16 text-red-500" />
+                    <AlertCircle className="w-6 h-6 text-red-400 absolute -bottom-1 -right-1 bg-slate-900 rounded-full" />
+                  </div>
+                  <p className="text-lg font-bold mb-2">Stream Unavailable</p>
+                  <p className="text-sm text-gray-400 mb-6 max-w-xs mx-auto">
+                    Unable to connect to camera feed. This may be due to network issues or the stream is offline.
+                  </p>
+                  <button
+                    onClick={handleRetry}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white font-semibold rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg shadow-emerald-500/30"
+                  >
+                    <RefreshCw className="w-5 h-5" />
+                    Retry Connection
+                  </button>
+                  {retryCount > 0 && (
+                    <p className="text-xs text-gray-500 mt-3">
+                      Retry attempts: {retryCount}
+                    </p>
+                  )}
+                </>
+              )}
             </div>
           </div>
         )}
