@@ -1,14 +1,17 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, Building2 } from 'lucide-react';
+import { Mail, Lock, User, Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { InputField } from '../ui';
 import AuthLayout from './AuthLayout';
+import { useAuth } from '../../contexts/AuthContext';
 
 /**
  * Signup Page Component
- * New user registration form
+ * New user registration form with Email/Password and Google OAuth
  */
 const SignupPage = ({ onNavigate }) => {
+  const { signUp, signInWithGoogle, error: authError, clearError } = useAuth();
+  
   const [formData, setFormData] = useState({
     fullName: '',
     company: '',
@@ -16,6 +19,9 @@ const SignupPage = ({ onNavigate }) => {
     password: '',
     agreeToTerms: false
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
+  const [showConfirmation, setShowConfirmation] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -23,14 +29,61 @@ const SignupPage = ({ onNavigate }) => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    // Clear errors when user starts typing
+    if (localError) setLocalError('');
+    if (authError) clearError();
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate signup - in production, call auth API
-    console.log('Signup attempt:', formData);
-    // Navigate to dashboard on success
-    onNavigate('dashboard');
+    setLocalError('');
+    
+    // Basic validation
+    if (!formData.email || !formData.password || !formData.fullName) {
+      setLocalError('Please fill in all required fields');
+      return;
+    }
+
+    if (formData.password.length < 6) {
+      setLocalError('Password must be at least 6 characters');
+      return;
+    }
+
+    if (!formData.agreeToTerms) {
+      setLocalError('Please agree to the Terms of Service and Privacy Policy');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    const result = await signUp(formData.email, formData.password, {
+      fullName: formData.fullName,
+      company: formData.company,
+    });
+    
+    if (result.success) {
+      if (result.needsConfirmation) {
+        // Show email confirmation message
+        setShowConfirmation(true);
+      } else {
+        // Navigate to dashboard on success (if no email confirmation required)
+        onNavigate('dashboard');
+      }
+    } else {
+      setLocalError(result.error || 'Signup failed. Please try again.');
+    }
+    
+    setIsSubmitting(false);
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLocalError('');
+    const result = await signInWithGoogle();
+    
+    if (!result.success) {
+      setLocalError(result.error || 'Google sign-in failed. Please try again.');
+    }
+    // On success, OAuth will redirect and the auth state change will handle navigation
   };
 
   // Simple password strength calculation
@@ -46,6 +99,34 @@ const SignupPage = ({ onNavigate }) => {
   };
 
   const passwordStrength = getPasswordStrength();
+  const displayError = localError || authError;
+
+  // Show email confirmation screen
+  if (showConfirmation) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-4 bg-[#F5F7F2]">
+        <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 text-center animate-in zoom-in-95">
+          <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6 text-green-500">
+            <CheckCircle2 size={32} />
+          </div>
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">Check your email</h2>
+          <p className="text-gray-500 mb-8">
+            We've sent a confirmation link to{' '}
+            <span className="font-semibold text-gray-800">{formData.email}</span>
+          </p>
+          <p className="text-sm text-gray-400 mb-6">
+            Please click the link in the email to verify your account before logging in.
+          </p>
+          <button 
+            onClick={() => onNavigate('login')}
+            className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button}`}
+          >
+            Go to Login
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <AuthLayout 
@@ -55,6 +136,14 @@ const SignupPage = ({ onNavigate }) => {
       onNavigate={onNavigate}
     >
       <form onSubmit={handleSubmit}>
+        {/* Error Message */}
+        {displayError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-sm">
+            <AlertCircle size={16} className="flex-shrink-0" />
+            <span>{displayError}</span>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
           <InputField 
             label="Full Name" 
@@ -64,6 +153,7 @@ const SignupPage = ({ onNavigate }) => {
             value={formData.fullName}
             onChange={handleChange}
             required
+            disabled={isSubmitting}
           />
           <InputField 
             label="Company" 
@@ -72,6 +162,7 @@ const SignupPage = ({ onNavigate }) => {
             icon={Building2}
             value={formData.company}
             onChange={handleChange}
+            disabled={isSubmitting}
           />
         </div>
         <InputField 
@@ -83,17 +174,19 @@ const SignupPage = ({ onNavigate }) => {
           value={formData.email}
           onChange={handleChange}
           required
+          disabled={isSubmitting}
         />
         <InputField 
           label="Password" 
           type="password" 
           name="password"
-          placeholder="Min. 8 characters" 
+          placeholder="Min. 6 characters" 
           icon={Lock} 
           showPasswordToggle
           value={formData.password}
           onChange={handleChange}
           required
+          disabled={isSubmitting}
         />
         
         {/* Password Strength Indicator */}
@@ -120,6 +213,7 @@ const SignupPage = ({ onNavigate }) => {
             checked={formData.agreeToTerms}
             onChange={handleChange}
             required
+            disabled={isSubmitting}
             className="mt-1 w-4 h-4 rounded border-gray-300 text-[#a3e635] focus:ring-[#a3e635]" 
           />
           <span className="text-sm text-gray-600 leading-tight">
@@ -131,10 +225,18 @@ const SignupPage = ({ onNavigate }) => {
         </label>
 
         <button 
-          type="submit" 
-          className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-6`}
+          type="submit"
+          disabled={isSubmitting}
+          className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-6 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          Create Account
+          {isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Creating account...
+            </span>
+          ) : (
+            'Create Account'
+          )}
         </button>
 
         <div className="relative my-6">
@@ -147,8 +249,10 @@ const SignupPage = ({ onNavigate }) => {
         </div>
 
         <button 
-          type="button" 
-          className="w-full py-3 border border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isSubmitting}
+          className="w-full py-3 border border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -165,6 +269,7 @@ const SignupPage = ({ onNavigate }) => {
             type="button"
             onClick={() => onNavigate('login')} 
             className="font-semibold text-[#a3e635] hover:underline"
+            disabled={isSubmitting}
           >
             Log in
           </button>

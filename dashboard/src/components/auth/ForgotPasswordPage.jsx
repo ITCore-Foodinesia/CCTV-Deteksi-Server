@@ -1,22 +1,55 @@
 import React, { useState } from 'react';
-import { Mail, Camera, CheckCircle2, ArrowRight } from 'lucide-react';
+import { Mail, Camera, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { InputField } from '../ui';
+import { useAuth } from '../../contexts/AuthContext';
 
 /**
  * Forgot Password Page Component
- * Password reset request form
+ * Password reset request form using Supabase
  */
 const ForgotPasswordPage = ({ onNavigate }) => {
+  const { resetPassword, error: authError, clearError } = useAuth();
+  
   const [isSent, setIsSent] = useState(false);
   const [email, setEmail] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
 
-  const handleReset = (e) => {
-    e.preventDefault();
-    // Simulate sending reset email
-    console.log('Password reset requested for:', email);
-    setIsSent(true);
+  const handleEmailChange = (e) => {
+    setEmail(e.target.value);
+    if (localError) setLocalError('');
+    if (authError) clearError();
   };
+
+  const handleReset = async (e) => {
+    e.preventDefault();
+    setLocalError('');
+    
+    if (!email) {
+      setLocalError('Please enter your email address');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    const result = await resetPassword(email);
+    
+    if (result.success) {
+      setIsSent(true);
+    } else {
+      setLocalError(result.error || 'Failed to send reset email. Please try again.');
+    }
+    
+    setIsSubmitting(false);
+  };
+
+  const handleResend = () => {
+    setIsSent(false);
+    // Email is preserved, user can submit again
+  };
+
+  const displayError = localError || authError;
 
   // Success State
   if (isSent) {
@@ -31,6 +64,9 @@ const ForgotPasswordPage = ({ onNavigate }) => {
             We've sent a password reset link to{' '}
             <span className="font-semibold text-gray-800">{email || 'your@email.com'}</span>
           </p>
+          <p className="text-sm text-gray-400 mb-6">
+            Click the link in the email to reset your password. The link will expire in 24 hours.
+          </p>
           <button 
             onClick={() => onNavigate('login')}
             className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-4`}
@@ -38,7 +74,7 @@ const ForgotPasswordPage = ({ onNavigate }) => {
             Back to Login
           </button>
           <button 
-            onClick={() => setIsSent(false)} 
+            onClick={handleResend} 
             className="text-gray-500 text-sm hover:text-gray-800"
           >
             Didn't receive it? Click to resend
@@ -73,6 +109,14 @@ const ForgotPasswordPage = ({ onNavigate }) => {
         </p>
 
         <form onSubmit={handleReset}>
+          {/* Error Message */}
+          {displayError && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-sm">
+              <AlertCircle size={16} className="flex-shrink-0" />
+              <span>{displayError}</span>
+            </div>
+          )}
+
           <InputField 
             label="Email Address" 
             type="email" 
@@ -80,15 +124,24 @@ const ForgotPasswordPage = ({ onNavigate }) => {
             placeholder="name@company.com" 
             icon={Mail}
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={handleEmailChange}
             required
+            disabled={isSubmitting}
           />
           
           <button 
-            type="submit" 
-            className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-6`}
+            type="submit"
+            disabled={isSubmitting}
+            className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-6 disabled:opacity-50 disabled:cursor-not-allowed`}
           >
-            Send Reset Link
+            {isSubmitting ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Sending...
+              </span>
+            ) : (
+              'Send Reset Link'
+            )}
           </button>
         </form>
 

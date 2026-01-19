@@ -1,19 +1,24 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User } from 'lucide-react';
+import { Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { InputField } from '../ui';
 import AuthLayout from './AuthLayout';
+import { useAuth } from '../../contexts/AuthContext';
 
 /**
  * Login Page Component
- * User authentication form
+ * User authentication form with Email/Password and Google OAuth
  */
 const LoginPage = ({ onNavigate }) => {
+  const { signIn, signInWithGoogle, error: authError, clearError } = useAuth();
+  
   const [formData, setFormData] = useState({
     email: '',
     password: '',
     rememberMe: false
   });
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [localError, setLocalError] = useState('');
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -21,15 +26,48 @@ const LoginPage = ({ onNavigate }) => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    // Clear errors when user starts typing
+    if (localError) setLocalError('');
+    if (authError) clearError();
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    // Simulate login - in production, call auth API
-    console.log('Login attempt:', formData);
-    // Navigate to dashboard on success
-    onNavigate('dashboard');
+    setLocalError('');
+    
+    // Basic validation
+    if (!formData.email || !formData.password) {
+      setLocalError('Please fill in all fields');
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    const result = await signIn(formData.email, formData.password);
+    
+    if (result.success) {
+      // Navigate to dashboard on success
+      onNavigate('dashboard');
+    } else {
+      // Error is already set in auth context, but we can also set local error
+      setLocalError(result.error || 'Login failed. Please try again.');
+    }
+    
+    setIsSubmitting(false);
   };
+
+  const handleGoogleSignIn = async () => {
+    setLocalError('');
+    const result = await signInWithGoogle();
+    
+    if (!result.success) {
+      setLocalError(result.error || 'Google sign-in failed. Please try again.');
+    }
+    // On success, OAuth will redirect and the auth state change will handle navigation
+  };
+
+  // Display error from either local state or auth context
+  const displayError = localError || authError;
 
   return (
     <AuthLayout 
@@ -39,6 +77,14 @@ const LoginPage = ({ onNavigate }) => {
       onNavigate={onNavigate}
     >
       <form onSubmit={handleSubmit}>
+        {/* Error Message */}
+        {displayError && (
+          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-700 text-sm">
+            <AlertCircle size={16} className="flex-shrink-0" />
+            <span>{displayError}</span>
+          </div>
+        )}
+
         <InputField 
           label="Email Address" 
           type="email" 
@@ -48,6 +94,7 @@ const LoginPage = ({ onNavigate }) => {
           value={formData.email}
           onChange={handleChange}
           required
+          disabled={isSubmitting}
         />
         <InputField 
           label="Password" 
@@ -59,6 +106,7 @@ const LoginPage = ({ onNavigate }) => {
           value={formData.password}
           onChange={handleChange}
           required
+          disabled={isSubmitting}
         />
         
         <div className="flex items-center justify-between mb-6">
@@ -68,6 +116,7 @@ const LoginPage = ({ onNavigate }) => {
               name="rememberMe"
               checked={formData.rememberMe}
               onChange={handleChange}
+              disabled={isSubmitting}
               className="w-4 h-4 rounded border-gray-300 text-[#a3e635] focus:ring-[#a3e635]" 
             />
             <span className="text-sm text-gray-600">Remember me</span>
@@ -76,6 +125,7 @@ const LoginPage = ({ onNavigate }) => {
             type="button"
             onClick={() => onNavigate('forgot-password')}
             className="text-sm font-semibold text-[#a3e635] hover:text-[#84cc16]"
+            disabled={isSubmitting}
           >
             Forgot password?
           </button>
@@ -83,9 +133,17 @@ const LoginPage = ({ onNavigate }) => {
 
         <button 
           type="submit" 
-          className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-6`}
+          disabled={isSubmitting}
+          className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-6 disabled:opacity-50 disabled:cursor-not-allowed`}
         >
-          Sign In
+          {isSubmitting ? (
+            <span className="flex items-center justify-center gap-2">
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+              Signing in...
+            </span>
+          ) : (
+            'Sign In'
+          )}
         </button>
 
         <div className="relative my-6">
@@ -98,8 +156,10 @@ const LoginPage = ({ onNavigate }) => {
         </div>
 
         <button 
-          type="button" 
-          className="w-full py-3 border border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-700 font-medium hover:bg-gray-50 transition-colors"
+          type="button"
+          onClick={handleGoogleSignIn}
+          disabled={isSubmitting}
+          className="w-full py-3 border border-gray-200 rounded-xl flex items-center justify-center gap-2 text-gray-700 font-medium hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <svg className="w-5 h-5" viewBox="0 0 24 24">
             <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -116,6 +176,7 @@ const LoginPage = ({ onNavigate }) => {
             type="button"
             onClick={() => onNavigate('signup')} 
             className="font-semibold text-[#a3e635] hover:underline"
+            disabled={isSubmitting}
           >
             Sign up
           </button>
