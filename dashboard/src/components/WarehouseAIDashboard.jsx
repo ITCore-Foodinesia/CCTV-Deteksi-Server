@@ -14,7 +14,7 @@ import CCTVFeed from './CCTVFeed';
 import ActivityLog from './ActivityLog';
 import { useWebSocket } from '../hooks/useWebSocket';
 
-const WarehouseAIDashboard = () => {
+const WarehouseAIDashboard = ({ onNavigate }) => {
   const [activeCamera, setActiveCamera] = useState(1);
 
   // WebSocket hook for real-time updates
@@ -177,7 +177,7 @@ const WarehouseAIDashboard = () => {
       {/* Centered container with max-width for compact layout */}
       {/* max-w-5xl = 1024px (approximately 80% of 1280px) for tighter layout */}
       <div className="max-w-4xl mx-auto p-2 md:p-4 font-sans text-slate-600 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden bg-[#F5F7F2] shadow-xl">
-        <Header connected={connected} status={status} />
+        <Header connected={connected} status={status} onNavigate={onNavigate} />
 
         {/* Mobile: scrollable, Desktop: fixed layout */}
         <div className="flex-1 flex flex-col gap-3 md:gap-4 overflow-y-auto lg:overflow-hidden pb-2">

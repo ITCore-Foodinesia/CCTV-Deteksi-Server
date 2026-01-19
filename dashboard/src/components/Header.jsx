@@ -1,9 +1,17 @@
-import React from 'react';
-import { Video, Wifi, ShieldCheck, WifiOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { Video, Wifi, ShieldCheck, WifiOff, LogOut, ChevronDown } from 'lucide-react';
 
-const Header = ({ connected, status }) => {
+const Header = ({ connected, status, onNavigate }) => {
+  const [showDropdown, setShowDropdown] = useState(false);
   const isConnected = status === 'Connected';
   const wsConnected = connected;
+
+  const handleLogout = () => {
+    // In production, clear auth tokens here
+    if (onNavigate) {
+      onNavigate('landing');
+    }
+  };
 
   return (
     <header className="flex justify-between items-center mb-6 flex-shrink-0">
@@ -34,8 +42,44 @@ const Header = ({ connected, status }) => {
             <ShieldCheck className="w-3 h-3 text-blue-500" /> AI Model: YOLOv8-Pro
           </span>
         </div>
-        <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="User" />
+        
+        {/* User Profile Dropdown */}
+        <div className="relative">
+          <button 
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 hover:bg-white/50 rounded-full p-1 transition-colors"
+            aria-label="User menu"
+            aria-expanded={showDropdown}
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
+              <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="User" />
+            </div>
+            <ChevronDown className={`w-4 h-4 text-gray-500 hidden md:block transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <>
+              {/* Backdrop to close dropdown */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowDropdown(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <p className="text-sm font-semibold text-gray-800">Admin User</p>
+                  <p className="text-xs text-gray-500">admin@gudang.ai</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors"
+                >
+                  <LogOut className="w-4 h-4 text-gray-400" />
+                  Sign Out
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
