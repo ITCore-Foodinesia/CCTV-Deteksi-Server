@@ -14,7 +14,7 @@ import CCTVFeed from './CCTVFeed';
 import ActivityLog from './ActivityLog';
 import { useWebSocket } from '../hooks/useWebSocket';
 
-const WarehouseAIDashboard = ({ onNavigate }) => {
+const WarehouseAIDashboard = ({ onNavigate, embedded = false }) => {
   const [activeCamera, setActiveCamera] = useState(1);
 
   // WebSocket hook for real-time updates
@@ -172,6 +172,106 @@ const WarehouseAIDashboard = ({ onNavigate }) => {
     isAnimated: loadingStatus.isActiveLoading, // For spinning icon
   };
 
+  // Content component to avoid duplication
+  const DashboardContent = () => (
+    <>
+      {/* STATS ROW - 2 cols mobile (6 cards: 5 + Loading Dock), 5 cols desktop (5 cards only) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 flex-shrink-0">
+        {statsConfig.map((stat, index) => (
+          <StatsCard key={index} {...stat} compact={true} />
+        ))}
+        {/* Loading Dock as 6th stat card - MOBILE ONLY */}
+        <div className="md:hidden">
+          <StatsCard {...loadingDockStatCard} compact={true} />
+        </div>
+      </div>
+
+      {/* MAIN CONTENT - Stack on mobile, grid on desktop */}
+      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-3 md:gap-4 lg:overflow-hidden">
+        {/* CCTV Feed - Full width on mobile, 8 cols on desktop */}
+        <div className="lg:col-span-8 flex flex-col lg:overflow-y-auto scrollbar-hide lg:pr-2">
+          <CCTVFeed
+            activeCamera={activeCamera}
+            setActiveCamera={setActiveCamera}
+            streamStatus={status}
+            fps={stats.fps}
+            latency={stats.latency}
+          />
+        </div>
+
+        {/* Sidebar - Stack below CCTV on mobile, 4 cols on desktop */}
+        <div className="lg:col-span-4 flex flex-col gap-3 md:gap-4 lg:overflow-hidden">
+
+          {/* LOADING DOCK CARD - DESKTOP ONLY (big card) */}
+          <div className="hidden lg:flex bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex-col relative overflow-hidden group min-h-[160px] justify-center items-center flex-shrink-0">
+          <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Truck className="w-20 h-20 text-violet-600" />
+          </div>
+
+          <div className="text-center z-10">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Loader2 className={`w-5 h-5 text-violet-400 ${loadingStatus.isActiveLoading ? 'animate-spin' : ''}`} />
+              <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">
+                Loading Dock
+              </span>
+            </div>
+
+            {loadingStatus.isActiveLoading ? (
+              <>
+                <h3 className="text-2xl font-black text-violet-900 mb-2">{loadingStatus.activePlate}</h3>
+                <p className="text-sm font-medium text-violet-700">
+                  Sedang Loading • {loadingStatus.arrivalTime}
+                </p>
+              </>
+            ) : (
+              <>
+                <h3 className="text-2xl font-black text-violet-900 mb-2">Tidak Ada Loading</h3>
+                <p className="text-sm font-medium text-violet-700">
+                  Semua dock tersedia
+                </p>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ACTIVITY LOGS */}
+        <div className={`${glassCard} flex-1 flex flex-col overflow-hidden`}>
+          <div className="p-5 border-b border-white/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">Log Aktivitas</h2>
+              <p className="text-xs text-gray-500">Deteksi Real-time</p>
+            </div>
+            <div className="p-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100">
+              <Filter className="w-4 h-4 text-gray-400" />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
+            <ActivityLog logs={activities} />
+          </div>
+
+          <div className="p-4 border-t border-white/50 bg-white/30 backdrop-blur-md">
+            <button className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold shadow-lg shadow-slate-300 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
+              View All Reports <ArrowUpRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    </>
+  );
+
+  // Embedded mode: no outer wrapper, just the content
+  if (embedded) {
+    return (
+      <div className="flex flex-col gap-3 md:gap-4">
+        <DashboardContent />
+      </div>
+    );
+  }
+
+  // Standalone mode: full page with header
   return (
     <div className="min-h-screen bg-slate-200">
       {/* Centered container with max-width for compact layout */}
@@ -181,90 +281,7 @@ const WarehouseAIDashboard = ({ onNavigate }) => {
 
         {/* Mobile: scrollable, Desktop: fixed layout */}
         <div className="flex-1 flex flex-col gap-3 md:gap-4 overflow-y-auto lg:overflow-hidden pb-2">
-          {/* STATS ROW - 2 cols mobile (6 cards: 5 + Loading Dock), 5 cols desktop (5 cards only) */}
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 flex-shrink-0">
-            {statsConfig.map((stat, index) => (
-              <StatsCard key={index} {...stat} compact={true} />
-            ))}
-            {/* Loading Dock as 6th stat card - MOBILE ONLY */}
-            <div className="md:hidden">
-              <StatsCard {...loadingDockStatCard} compact={true} />
-            </div>
-          </div>
-
-          {/* MAIN CONTENT - Stack on mobile, grid on desktop */}
-          <div className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-3 md:gap-4 lg:overflow-hidden">
-            {/* CCTV Feed - Full width on mobile, 8 cols on desktop */}
-            <div className="lg:col-span-8 flex flex-col lg:overflow-y-auto scrollbar-hide lg:pr-2">
-              <CCTVFeed
-                activeCamera={activeCamera}
-                setActiveCamera={setActiveCamera}
-                streamStatus={status}
-                fps={stats.fps}
-                latency={stats.latency}
-              />
-            </div>
-
-            {/* Sidebar - Stack below CCTV on mobile, 4 cols on desktop */}
-            <div className="lg:col-span-4 flex flex-col gap-3 md:gap-4 lg:overflow-hidden">
-
-              {/* LOADING DOCK CARD - DESKTOP ONLY (big card) */}
-              <div className="hidden lg:flex bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex-col relative overflow-hidden group min-h-[160px] justify-center items-center flex-shrink-0">
-              <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Truck className="w-20 h-20 text-violet-600" />
-              </div>
-
-              <div className="text-center z-10">
-                <div className="flex items-center justify-center gap-2 mb-3">
-                  <Loader2 className={`w-5 h-5 text-violet-400 ${loadingStatus.isActiveLoading ? 'animate-spin' : ''}`} />
-                  <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">
-                    Loading Dock
-                  </span>
-                </div>
-
-                {loadingStatus.isActiveLoading ? (
-                  <>
-                    <h3 className="text-2xl font-black text-violet-900 mb-2">{loadingStatus.activePlate}</h3>
-                    <p className="text-sm font-medium text-violet-700">
-                      Sedang Loading • {loadingStatus.arrivalTime}
-                    </p>
-                  </>
-                ) : (
-                  <>
-                    <h3 className="text-2xl font-black text-violet-900 mb-2">Tidak Ada Loading</h3>
-                    <p className="text-sm font-medium text-violet-700">
-                      Semua dock tersedia
-                    </p>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* ACTIVITY LOGS */}
-            <div className={`${glassCard} flex-1 flex flex-col overflow-hidden`}>
-              <div className="p-5 border-b border-white/50 flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">Log Aktivitas</h2>
-                  <p className="text-xs text-gray-500">Deteksi Real-time</p>
-                </div>
-                <div className="p-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100">
-                  <Filter className="w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
-                <ActivityLog logs={activities} />
-              </div>
-
-              <div className="p-4 border-t border-white/50 bg-white/30 backdrop-blur-md">
-                <button className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold shadow-lg shadow-slate-300 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
-                  View All Reports <ArrowUpRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
-          </div>
-        </div>
+          <DashboardContent />
         </div>
       </div>
     </div>

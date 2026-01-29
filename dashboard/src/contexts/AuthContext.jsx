@@ -8,9 +8,23 @@
  * - Google OAuth sign in
  * - Password reset
  * - Session persistence and auto-refresh
+ * - DEMO MODE: For testing UI without real auth
  */
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+
+// Demo mode flag - set to true to bypass auth for UI testing
+const DEMO_MODE = true;
+
+// Demo user for testing
+const DEMO_USER = {
+  id: 'demo-user-001',
+  email: 'demo@gudangai.com',
+  user_metadata: {
+    full_name: 'Demo Admin',
+    company: 'GudangAI Demo',
+  },
+};
 
 // Create the context
 const AuthContext = createContext(null);
@@ -32,13 +46,19 @@ export const useAuth = () => {
  * Wraps the app and provides auth state/methods
  */
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [session, setSession] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(DEMO_MODE ? DEMO_USER : null);
+  const [session, setSession] = useState(DEMO_MODE ? { user: DEMO_USER } : null);
+  const [loading, setLoading] = useState(DEMO_MODE ? false : true);
   const [error, setError] = useState(null);
 
   // Initialize auth state on mount
   useEffect(() => {
+    // Skip real auth in demo mode
+    if (DEMO_MODE) {
+      console.log('🎭 DEMO MODE: Auth bypassed for UI testing');
+      return;
+    }
+
     // Get initial session
     const initializeAuth = async () => {
       try {
