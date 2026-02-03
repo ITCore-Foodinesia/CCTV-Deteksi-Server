@@ -15,13 +15,13 @@ import {
  * Landing Page Component
  * Main marketing page composing all landing sections
  */
-const LandingPage = ({ onNavigate }) => {
+const LandingPage = () => {
   return (
     <div className="flex flex-col min-h-screen">
-      <Navbar onNavigate={onNavigate} />
+      <Navbar />
       
       {/* Hero Section */}
-      <HeroSection onNavigate={onNavigate} />
+      <HeroSection />
 
       {/* Features Section */}
       <FeaturesSection />
@@ -30,7 +30,7 @@ const LandingPage = ({ onNavigate }) => {
       <HowItWorksSection />
 
       {/* Pricing Section */}
-      <PricingSection onNavigate={onNavigate} />
+      <PricingSection />
       
       {/* Testimonials Section */}
       <TestimonialsSection />
@@ -39,7 +39,7 @@ const LandingPage = ({ onNavigate }) => {
       <FAQSection />
 
       {/* CTA */}
-      <CTASection onNavigate={onNavigate} />
+      <CTASection />
 
       {/* Footer */}
       <Footer />

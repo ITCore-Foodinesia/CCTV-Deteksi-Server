@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, AlertCircle } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { InputField } from '../ui';
@@ -9,7 +10,8 @@ import { useAuth } from '../../contexts/AuthContext';
  * Login Page Component
  * User authentication form with Email/Password and Google OAuth
  */
-const LoginPage = ({ onNavigate }) => {
+const LoginPage = () => {
+  const navigate = useNavigate();
   const { signIn, signInWithGoogle, error: authError, clearError } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -47,7 +49,7 @@ const LoginPage = ({ onNavigate }) => {
     
     if (result.success) {
       // Navigate to dashboard on success
-      onNavigate('dashboard');
+      navigate('/dashboard');
     } else {
       // Error is already set in auth context, but we can also set local error
       setLocalError(result.error || 'Login failed. Please try again.');
@@ -74,7 +76,6 @@ const LoginPage = ({ onNavigate }) => {
       title="Welcome back" 
       subtitle="Enter your credentials to access your dashboard."
       visualIcon={<User size={24} />}
-      onNavigate={onNavigate}
     >
       <form onSubmit={handleSubmit}>
         {/* Error Message */}
@@ -121,14 +122,12 @@ const LoginPage = ({ onNavigate }) => {
             />
             <span className="text-sm text-gray-600">Remember me</span>
           </label>
-          <button 
-            type="button"
-            onClick={() => onNavigate('forgot-password')}
+          <Link 
+            to="/forgot-password"
             className="text-sm font-semibold text-[#a3e635] hover:text-[#84cc16]"
-            disabled={isSubmitting}
           >
             Forgot password?
-          </button>
+          </Link>
         </div>
 
         <button 
@@ -172,14 +171,12 @@ const LoginPage = ({ onNavigate }) => {
 
         <p className="mt-8 text-center text-sm text-gray-600">
           Don't have an account?{' '}
-          <button 
-            type="button"
-            onClick={() => onNavigate('signup')} 
+          <Link 
+            to="/signup" 
             className="font-semibold text-[#a3e635] hover:underline"
-            disabled={isSubmitting}
           >
             Sign up
-          </button>
+          </Link>
         </p>
       </form>
     </AuthLayout>

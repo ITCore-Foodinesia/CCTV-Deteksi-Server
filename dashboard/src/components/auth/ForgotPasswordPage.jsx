@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Camera, CheckCircle2, ArrowRight, AlertCircle } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { InputField } from '../ui';
@@ -8,7 +9,8 @@ import { useAuth } from '../../contexts/AuthContext';
  * Forgot Password Page Component
  * Password reset request form using Supabase
  */
-const ForgotPasswordPage = ({ onNavigate }) => {
+const ForgotPasswordPage = () => {
+  const navigate = useNavigate();
   const { resetPassword, error: authError, clearError } = useAuth();
   
   const [isSent, setIsSent] = useState(false);
@@ -67,15 +69,15 @@ const ForgotPasswordPage = ({ onNavigate }) => {
           <p className="text-sm text-gray-400 mb-6">
             Click the link in the email to reset your password. The link will expire in 24 hours.
           </p>
-          <button 
-            onClick={() => onNavigate('login')}
-            className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-4`}
+          <Link 
+            to="/login"
+            className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} mb-4 inline-block text-center`}
           >
             Back to Login
-          </button>
+          </Link>
           <button 
             onClick={handleResend} 
-            className="text-gray-500 text-sm hover:text-gray-800"
+            className="block mx-auto text-gray-500 text-sm hover:text-gray-800"
           >
             Didn't receive it? Click to resend
           </button>
@@ -88,12 +90,9 @@ const ForgotPasswordPage = ({ onNavigate }) => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 bg-[#F5F7F2]">
       <div className="w-full max-w-md bg-white rounded-3xl shadow-xl p-8 animate-in zoom-in-95">
-        <div 
-          onClick={() => onNavigate('login')}
-          className="flex items-center gap-2 mb-8 cursor-pointer w-fit"
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && onNavigate('login')}
+        <Link 
+          to="/login"
+          className="flex items-center gap-2 mb-8 w-fit"
         >
           <div className="w-8 h-8 rounded-lg bg-[#a3e635] flex items-center justify-center">
             <Camera className="text-white w-4 h-4" />
@@ -101,7 +100,7 @@ const ForgotPasswordPage = ({ onNavigate }) => {
           <span className="text-lg font-bold text-gray-800">
             Gudang<span className="text-[#65a30d]">AI</span>
           </span>
-        </div>
+        </Link>
 
         <h2 className="text-2xl font-bold text-gray-900 mb-2">Reset password</h2>
         <p className="text-gray-500 mb-8">
@@ -146,12 +145,12 @@ const ForgotPasswordPage = ({ onNavigate }) => {
         </form>
 
         <div className="text-center">
-          <button 
-            onClick={() => onNavigate('login')} 
+          <Link 
+            to="/login" 
             className="text-sm font-semibold text-gray-600 hover:text-gray-900 flex items-center justify-center gap-1 mx-auto"
           >
             <ArrowRight className="rotate-180 w-4 h-4" /> Back to Login
-          </button>
+          </Link>
         </div>
       </div>
     </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Activity, Truck } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 
@@ -6,7 +7,7 @@ import { THEME } from '../../constants/theme';
  * Hero Section Component
  * Main landing page hero with visual demonstration
  */
-const HeroSection = ({ onNavigate }) => {
+const HeroSection = () => {
   return (
     <header className="pt-32 pb-20 px-6 relative overflow-hidden">
       {/* Background Blobs */}
@@ -36,12 +37,12 @@ const HeroSection = ({ onNavigate }) => {
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4">
-            <button 
-              onClick={() => onNavigate('signup')}
-              className={`${THEME.colors.primary} ${THEME.colors.primaryHover} px-8 py-4 rounded-xl text-gray-900 font-bold shadow-xl shadow-lime-300/40 hover:-translate-y-1 transition-all`}
+            <Link 
+              to="/signup"
+              className={`${THEME.colors.primary} ${THEME.colors.primaryHover} px-8 py-4 rounded-xl text-gray-900 font-bold shadow-xl shadow-lime-300/40 hover:-translate-y-1 transition-all text-center`}
             >
               Get Started Free
-            </button>
+            </Link>
             <button className="px-8 py-4 rounded-xl bg-white text-gray-700 font-bold border border-gray-200 hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-2">
               <Activity className="w-5 h-5 text-gray-400" />
               Live Demo

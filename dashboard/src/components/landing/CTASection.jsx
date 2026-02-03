@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { ArrowRight, Camera } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 
@@ -6,7 +7,7 @@ import { THEME } from '../../constants/theme';
  * CTA Section Component
  * Call-to-action banner
  */
-export const CTASection = ({ onNavigate }) => {
+export const CTASection = () => {
   return (
     <section className="py-20 px-6">
       <div className="container mx-auto">
@@ -19,12 +20,12 @@ export const CTASection = ({ onNavigate }) => {
             <p className="text-gray-400 mb-8 max-w-xl mx-auto">
               Join 50+ logistics companies using Gudang AI Monitor to secure their assets and improve efficiency.
             </p>
-            <button 
-              onClick={() => onNavigate('signup')}
+            <Link 
+              to="/signup"
               className={`${THEME.colors.primary} ${THEME.colors.primaryHover} px-10 py-4 rounded-xl text-gray-900 font-bold shadow-lg transition-transform hover:-translate-y-1 inline-flex items-center gap-2`}
             >
               Start Monitoring Today <ArrowRight size={20} />
-            </button>
+            </Link>
           </div>
         </div>
       </div>
@@ -40,14 +41,14 @@ export const Footer = () => {
   return (
     <footer className="bg-white py-12 px-6 border-t border-gray-200">
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-2">
+        <Link to="/" className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-[#a3e635] flex items-center justify-center">
             <Camera className="text-white w-5 h-5" />
           </div>
           <span className="text-lg font-bold text-gray-800">
             Gudang<span className="text-[#65a30d]">AI</span>
           </span>
-        </div>
+        </Link>
         
         <div className="text-gray-500 text-sm">
           &copy; {new Date().getFullYear()} Gudang AI Monitor. All rights reserved.

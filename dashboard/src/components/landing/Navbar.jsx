@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { Camera, Menu, X } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 
@@ -6,7 +7,7 @@ import { THEME } from '../../constants/theme';
  * Navigation Bar Component
  * Responsive navbar with mobile menu and scroll effects
  */
-const Navbar = ({ onNavigate, currentPage }) => {
+const Navbar = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -16,8 +17,7 @@ const Navbar = ({ onNavigate, currentPage }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  const handleNavClick = (page) => {
-    onNavigate(page);
+  const closeMobileMenu = () => {
     setIsMobileMenuOpen(false);
   };
 
@@ -29,12 +29,9 @@ const Navbar = ({ onNavigate, currentPage }) => {
     >
       <div className="container mx-auto px-6 flex justify-between items-center">
         {/* Logo */}
-        <div 
-          onClick={() => handleNavClick('landing')}
-          className="flex items-center gap-2 cursor-pointer group"
-          role="button"
-          tabIndex={0}
-          onKeyDown={(e) => e.key === 'Enter' && handleNavClick('landing')}
+        <Link 
+          to="/"
+          className="flex items-center gap-2 group"
         >
           <div className="w-10 h-10 rounded-xl bg-[#a3e635] flex items-center justify-center shadow-lg shadow-lime-300/50 group-hover:scale-105 transition-transform">
             <Camera className="text-white w-6 h-6" />
@@ -42,7 +39,7 @@ const Navbar = ({ onNavigate, currentPage }) => {
           <span className="text-xl font-bold text-gray-800 tracking-tight">
             Gudang<span className="text-[#65a30d]">AI</span>
           </span>
-        </div>
+        </Link>
 
         {/* Desktop Links */}
         <div className="hidden md:flex items-center gap-8">
@@ -65,12 +62,12 @@ const Navbar = ({ onNavigate, currentPage }) => {
             Reviews
           </a>
           
-          <button 
-            onClick={() => handleNavClick('login')}
+          <Link 
+            to="/login"
             className={`${THEME.colors.primary} ${THEME.colors.primaryHover} text-gray-900 px-8 py-2.5 rounded-xl font-bold shadow-lg shadow-lime-300/40 transition-transform hover:-translate-y-0.5`}
           >
             Login
-          </button>
+          </Link>
         </div>
 
         {/* Mobile Toggle */}
@@ -89,32 +86,33 @@ const Navbar = ({ onNavigate, currentPage }) => {
         <div className="md:hidden absolute top-full left-0 right-0 bg-white border-b border-gray-100 p-6 flex flex-col gap-4 shadow-xl animate-in slide-in-from-top-5">
           <a 
             href="#features" 
-            onClick={() => setIsMobileMenuOpen(false)} 
+            onClick={closeMobileMenu} 
             className="text-gray-600 py-2 font-medium"
           >
             Features
           </a>
           <a 
             href="#pricing" 
-            onClick={() => setIsMobileMenuOpen(false)} 
+            onClick={closeMobileMenu} 
             className="text-gray-600 py-2 font-medium"
           >
             Pricing
           </a>
           <a 
             href="#reviews" 
-            onClick={() => setIsMobileMenuOpen(false)} 
+            onClick={closeMobileMenu} 
             className="text-gray-600 py-2 font-medium"
           >
             Reviews
           </a>
           
-          <button 
-            onClick={() => handleNavClick('login')}
-            className={`${THEME.colors.primary} w-full py-3 rounded-xl font-bold shadow-md text-gray-900`}
+          <Link 
+            to="/login"
+            onClick={closeMobileMenu}
+            className={`${THEME.colors.primary} w-full py-3 rounded-xl font-bold shadow-md text-gray-900 text-center`}
           >
             Login
-          </button>
+          </Link>
         </div>
       )}
     </nav>

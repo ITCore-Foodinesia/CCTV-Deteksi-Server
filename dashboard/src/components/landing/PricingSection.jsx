@@ -1,11 +1,12 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Check } from 'lucide-react';
 
 /**
  * Pricing Section Component
  * Displays pricing plans with feature comparison
  */
-const PricingSection = ({ onNavigate }) => {
+const PricingSection = () => {
   const plans = [
     {
       name: "Starter",
@@ -118,16 +119,16 @@ const PricingSection = ({ onNavigate }) => {
                 ))}
               </div>
 
-              <button 
-                onClick={() => onNavigate('signup')}
-                className={`w-full py-3 rounded-xl font-bold transition-all ${
+              <Link 
+                to="/signup"
+                className={`block w-full py-3 rounded-xl font-bold transition-all text-center ${
                   plan.highlight 
                     ? 'bg-[#a3e635] hover:bg-[#84cc16] text-gray-900 shadow-lg shadow-lime-300/40' 
                     : 'bg-gray-900 hover:bg-gray-800 text-white shadow-lg'
                 }`}
               >
                 {plan.cta}
-              </button>
+              </Link>
             </div>
           ))}
         </div>

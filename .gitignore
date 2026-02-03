@@ -1,6 +1,7 @@
 # Folders to ignore
 cctv SOP/
 "cctv SOP"/
+hello_flutter
 
 # Dependencies
 node_modules/

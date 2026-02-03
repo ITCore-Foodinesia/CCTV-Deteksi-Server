@@ -1,6 +1,6 @@
 /**
- * Navigation Configuration for GudangAI Admin Panel
- * Defines sidebar menu structure with groups and items
+ * Navigation Configuration
+ * Defines sidebar menu structure with React Router paths
  */
 
 import {
@@ -21,25 +21,34 @@ import {
   TrendingUp,
 } from 'lucide-react';
 
+/**
+ * Navigation menu configuration
+ * Each item has:
+ * - key: unique identifier
+ * - label: display text
+ * - icon: Lucide icon component
+ * - path: React Router path (relative to /dashboard)
+ * - enabled: whether the menu item is clickable
+ * - roles: (optional) which roles can see this item
+ */
 export const NAVIGATION = [
   {
     group: 'main',
     label: 'MAIN',
     items: [
       {
-        key: 'dashboard-overview',
+        key: 'dashboard',
         label: 'Dashboard',
         icon: LayoutDashboard,
-        page: 'dashboard-overview',
+        path: '/dashboard/overview',
         enabled: true,
       },
       {
         key: 'live-streaming',
         label: 'Live Streaming',
         icon: Video,
-        page: 'live-streaming',
+        path: '/dashboard/live-streaming',
         enabled: true,
-        indent: true,
       },
     ],
   },
@@ -51,36 +60,36 @@ export const NAVIGATION = [
         key: 'drivers',
         label: 'Drivers',
         icon: User,
-        page: 'drivers',
-        enabled: false,
+        path: '/dashboard/drivers',
+        enabled: true,
       },
       {
         key: 'trucks',
         label: 'Trucks',
         icon: Truck,
-        page: 'trucks',
-        enabled: false,
+        path: '/dashboard/trucks',
+        enabled: true,
       },
       {
         key: 'docks',
         label: 'Docks',
         icon: Building2,
-        page: 'docks',
-        enabled: false,
+        path: '/dashboard/docks',
+        enabled: true,
       },
       {
         key: 'helpers',
         label: 'Helpers',
         icon: HardHat,
-        page: 'helpers',
-        enabled: false,
+        path: '/dashboard/helpers',
+        enabled: true,
       },
       {
         key: 'loaders',
         label: 'Loaders',
         icon: Package,
-        page: 'loaders',
-        enabled: false,
+        path: '/dashboard/loaders',
+        enabled: true,
       },
     ],
   },
@@ -92,22 +101,22 @@ export const NAVIGATION = [
         key: 'sessions',
         label: 'Loading Sessions',
         icon: Timer,
-        page: 'sessions',
-        enabled: false,
+        path: '/dashboard/sessions',
+        enabled: true,
       },
       {
         key: 'history',
         label: 'History',
         icon: History,
-        page: 'history',
-        enabled: false,
+        path: '/dashboard/history',
+        enabled: true,
       },
       {
         key: 'notifications',
         label: 'Notifications',
         icon: Bell,
-        page: 'notifications',
-        enabled: false,
+        path: '/dashboard/notifications',
+        enabled: true,
       },
     ],
   },
@@ -119,22 +128,24 @@ export const NAVIGATION = [
         key: 'cameras',
         label: 'Cameras',
         icon: Camera,
-        page: 'cameras',
-        enabled: false,
+        path: '/dashboard/cameras',
+        enabled: true,
       },
       {
         key: 'users',
         label: 'Users & Roles',
         icon: Users,
-        page: 'users',
-        enabled: false,
+        path: '/dashboard/users',
+        enabled: true,
+        roles: ['owner'], // Only visible to owner
       },
       {
         key: 'settings',
         label: 'Settings',
         icon: Settings,
-        page: 'settings',
-        enabled: false,
+        path: '/dashboard/settings',
+        enabled: true,
+        roles: ['owner'], // Only visible to owner
       },
     ],
   },
@@ -146,18 +157,40 @@ export const NAVIGATION = [
         key: 'reports',
         label: 'Reports',
         icon: BarChart3,
-        page: 'reports',
-        enabled: false,
+        path: '/dashboard/reports',
+        enabled: true,
       },
       {
         key: 'analytics',
         label: 'Analytics',
         icon: TrendingUp,
-        page: 'analytics',
-        enabled: false,
+        path: '/dashboard/analytics',
+        enabled: true,
       },
     ],
   },
 ];
+
+/**
+ * Get flat list of all navigation items
+ */
+export const getAllNavItems = () => {
+  return NAVIGATION.flatMap((group) => group.items);
+};
+
+/**
+ * Find navigation item by path
+ */
+export const findNavItemByPath = (path) => {
+  return getAllNavItems().find((item) => item.path === path);
+};
+
+/**
+ * Check if user role has access to navigation item
+ */
+export const hasAccessToNavItem = (item, userRole) => {
+  if (!item.roles) return true;
+  return item.roles.includes(userRole);
+};
 
 export default NAVIGATION;

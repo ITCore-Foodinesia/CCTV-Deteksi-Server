@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { Mail, Lock, User, Building2, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 import { InputField } from '../ui';
@@ -9,7 +10,8 @@ import { useAuth } from '../../contexts/AuthContext';
  * Signup Page Component
  * New user registration form with Email/Password and Google OAuth
  */
-const SignupPage = ({ onNavigate }) => {
+const SignupPage = () => {
+  const navigate = useNavigate();
   const { signUp, signInWithGoogle, error: authError, clearError } = useAuth();
   
   const [formData, setFormData] = useState({
@@ -67,7 +69,7 @@ const SignupPage = ({ onNavigate }) => {
         setShowConfirmation(true);
       } else {
         // Navigate to dashboard on success (if no email confirmation required)
-        onNavigate('dashboard');
+        navigate('/app/dashboard');
       }
     } else {
       setLocalError(result.error || 'Signup failed. Please try again.');
@@ -117,12 +119,12 @@ const SignupPage = ({ onNavigate }) => {
           <p className="text-sm text-gray-400 mb-6">
             Please click the link in the email to verify your account before logging in.
           </p>
-          <button 
-            onClick={() => onNavigate('login')}
-            className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button}`}
+          <Link 
+            to="/login"
+            className={`${THEME.colors.primary} ${THEME.colors.primaryHover} ${THEME.button} inline-block text-center`}
           >
             Go to Login
-          </button>
+          </Link>
         </div>
       </div>
     );
@@ -133,7 +135,6 @@ const SignupPage = ({ onNavigate }) => {
       title="Create account" 
       subtitle="Start monitoring your warehouse with AI today."
       visualIcon={<Building2 size={24} />}
-      onNavigate={onNavigate}
     >
       <form onSubmit={handleSubmit}>
         {/* Error Message */}
@@ -265,14 +266,12 @@ const SignupPage = ({ onNavigate }) => {
 
         <p className="mt-8 text-center text-sm text-gray-600">
           Already have an account?{' '}
-          <button 
-            type="button"
-            onClick={() => onNavigate('login')} 
+          <Link 
+            to="/login" 
             className="font-semibold text-[#a3e635] hover:underline"
-            disabled={isSubmitting}
           >
             Log in
-          </button>
+          </Link>
         </p>
       </form>
     </AuthLayout>

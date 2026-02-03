@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import { Camera, ShieldCheck, Box } from 'lucide-react';
 import { THEME } from '../../constants/theme';
 
@@ -6,7 +7,7 @@ import { THEME } from '../../constants/theme';
  * Auth Layout Component
  * Shared wrapper for Login/Signup/Forgot Password pages
  */
-const AuthLayout = ({ children, title, subtitle, visualIcon, onNavigate }) => {
+const AuthLayout = ({ children, title, subtitle, visualIcon }) => {
   return (
     <div className="min-h-screen flex items-center justify-center p-4 lg:p-0">
       <div className="w-full max-w-6xl h-auto lg:h-[800px] bg-white rounded-3xl shadow-2xl overflow-hidden flex flex-col lg:flex-row animate-in fade-in duration-500">
@@ -18,12 +19,9 @@ const AuthLayout = ({ children, title, subtitle, visualIcon, onNavigate }) => {
           <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-blue-400/10 rounded-full blur-[80px]" />
 
           {/* Logo */}
-          <div 
-            className="relative z-10 flex items-center gap-2 cursor-pointer"
-            onClick={() => onNavigate('landing')}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => e.key === 'Enter' && onNavigate('landing')}
+          <Link 
+            to="/"
+            className="relative z-10 flex items-center gap-2 w-fit"
           >
             <div className="w-10 h-10 rounded-xl bg-[#a3e635] flex items-center justify-center shadow-md">
               <Camera className="text-white w-6 h-6" />
@@ -31,7 +29,7 @@ const AuthLayout = ({ children, title, subtitle, visualIcon, onNavigate }) => {
             <span className="text-xl font-bold text-gray-800">
               Gudang<span className="text-[#65a30d]">AI</span>
             </span>
-          </div>
+          </Link>
 
           {/* Central Illustration */}
           <div className="relative z-10 flex-1 flex items-center justify-center">
@@ -86,11 +84,9 @@ const AuthLayout = ({ children, title, subtitle, visualIcon, onNavigate }) => {
           <div className="max-w-md mx-auto w-full">
             {/* Mobile Header (Only visible on smaller screens) */}
             <div className="lg:hidden flex items-center gap-2 mb-8 justify-center">
-              <div 
-                className="flex items-center gap-2 cursor-pointer"
-                onClick={() => onNavigate('landing')}
-                role="button"
-                tabIndex={0}
+              <Link 
+                to="/"
+                className="flex items-center gap-2"
               >
                 <div className="w-8 h-8 rounded-lg bg-[#a3e635] flex items-center justify-center">
                   <Camera className="text-white w-5 h-5" />
@@ -98,7 +94,7 @@ const AuthLayout = ({ children, title, subtitle, visualIcon, onNavigate }) => {
                 <span className="text-lg font-bold text-gray-800">
                   Gudang<span className="text-[#65a30d]">AI</span>
                 </span>
-              </div>
+              </Link>
             </div>
 
             <div className="mb-8">
