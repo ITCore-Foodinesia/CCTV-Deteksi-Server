@@ -1,7 +1,7 @@
 /**
  * DashboardOverview Page
  * Main dashboard with KPIs, dock status, quick actions, and activity feed
- * Uses MOCK/STATIC data for UI demonstration
+ * Uses Supabase Real-time for live updates.
  */
 
 import React from 'react';
@@ -15,34 +15,15 @@ import {
   ArrowRight,
   TrendingUp,
   Activity,
+  Loader2,
+  RefreshCw,
 } from 'lucide-react';
 import { THEME } from '../constants/theme';
+import { useDashboardStats } from '../hooks';
 
 // ============================================================
-// MOCK DATA (Static for UI demonstration)
+// Quick Actions (static)
 // ============================================================
-
-const MOCK_KPIS = [
-  { label: 'Active Sessions', value: 3, icon: Timer, trend: '+2 today', trendUp: true },
-  { label: 'Available Docks', value: 2, icon: Building2, trend: '4 total', trendUp: null },
-  { label: 'Total Drivers', value: 15, icon: User, trend: '+1 this week', trendUp: true },
-  { label: 'Today Completed', value: 8, icon: CheckCircle, trend: '95% success', trendUp: true },
-];
-
-const MOCK_DOCKS = [
-  { code: 'D-01', name: 'Dock Utama 1', status: 'available' },
-  { code: 'D-02', name: 'Dock Utama 2', status: 'loading', plate: 'B 1234 XY', driver: 'Budi Santoso' },
-  { code: 'D-03', name: 'Dock Samping', status: 'available' },
-  { code: 'D-04', name: 'Dock Maintenance', status: 'maintenance', reason: 'Perbaikan lantai' },
-];
-
-const MOCK_ACTIVITY = [
-  { icon: '🟢', text: 'Driver "Budi" started loading at D-02', time: '2 min ago', type: 'success' },
-  { icon: '🟡', text: 'Dock D-04 set to maintenance', time: '18 min ago', type: 'warning' },
-  { icon: '🔵', text: 'Driver "Ahmad" completed at D-01', time: '35 min ago', type: 'info' },
-  { icon: '🟢', text: 'New driver "Rudi" registered', time: '55 min ago', type: 'success' },
-  { icon: '🔵', text: 'System health check passed', time: '1 hr ago', type: 'info' },
-];
 
 const QUICK_ACTIONS = [
   { label: 'Start Loading', icon: Plus, color: 'bg-emerald-500 hover:bg-emerald-600' },
@@ -75,7 +56,7 @@ const KPICard = ({ label, value, icon: Icon, trend, trendUp }) => (
         )}
       </div>
       <div className="grid h-11 w-11 place-items-center rounded-2xl bg-gray-100">
-        <Icon className="h-5 w-5 text-gray-600" />
+        {Icon && <Icon className="h-5 w-5 text-gray-600" />}
       </div>
     </div>
   </div>
@@ -90,6 +71,7 @@ const DockStatusCard = ({ code, name, status, plate, driver, reason }) => {
   const statusLabels = {
     available: 'Available',
     loading: 'Loading',
+    unloading: 'Unloading',
     maintenance: 'Maintenance',
     reserved: 'Reserved',
     closed: 'Closed',
@@ -102,7 +84,7 @@ const DockStatusCard = ({ code, name, status, plate, driver, reason }) => {
           <div className="text-sm font-semibold">{code}</div>
           <div className="text-xs opacity-80">{name}</div>
           <div className="mt-1 text-xs uppercase tracking-wider opacity-80 font-medium">
-            {statusLabels[status]}
+            {statusLabels[status] || status}
           </div>
           {plate && (
             <div className="mt-2 text-xs font-medium">
@@ -152,6 +134,35 @@ const ActivityItem = ({ icon, text, time }) => (
 // ============================================================
 
 const DashboardOverview = () => {
+  const { kpis, dockStatus, activity, summary, loading, error, refetch } = useDashboardStats();
+
+  // Map KPIs to icons
+  const kpiIcons = [Timer, Building2, User, CheckCircle];
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <span className="ml-2 text-gray-500">Loading dashboard...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+        <AlertTriangle className="mx-auto h-8 w-8 text-red-500" />
+        <p className="mt-2 text-sm text-red-700">{error}</p>
+        <button 
+          onClick={refetch}
+          className="mt-4 rounded-xl bg-red-100 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-200"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -164,14 +175,21 @@ const DashboardOverview = () => {
         </div>
         <div className="flex items-center gap-2 text-xs text-gray-500">
           <Activity className="h-4 w-4" />
-          <span>Last updated: just now</span>
+          <span>Live updates enabled</span>
+          <button
+            onClick={refetch}
+            className="ml-2 rounded-lg p-1 hover:bg-gray-100"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
         </div>
       </div>
 
       {/* KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {MOCK_KPIS.map((kpi, idx) => (
-          <KPICard key={idx} {...kpi} />
+        {kpis.map((kpi, idx) => (
+          <KPICard key={idx} {...kpi} icon={kpiIcons[idx]} />
         ))}
       </div>
 
@@ -186,11 +204,18 @@ const DashboardOverview = () => {
             </button>
           </div>
           
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            {MOCK_DOCKS.map((dock, idx) => (
-              <DockStatusCard key={idx} {...dock} />
-            ))}
-          </div>
+          {dockStatus.length === 0 ? (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
+              <Building2 className="mx-auto h-10 w-10 text-gray-300" />
+              <p className="mt-2 text-sm text-gray-500">No docks configured</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {dockStatus.slice(0, 6).map((dock, idx) => (
+                <DockStatusCard key={idx} {...dock} />
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Right Column - Quick Actions & Activity */}
@@ -213,10 +238,39 @@ const DashboardOverview = () => {
                 View all
               </button>
             </div>
-            <div className="divide-y divide-gray-100">
-              {MOCK_ACTIVITY.slice(0, 4).map((activity, idx) => (
-                <ActivityItem key={idx} {...activity} />
-              ))}
+            {activity.length === 0 ? (
+              <div className="py-4 text-center text-sm text-gray-500">
+                No recent activity
+              </div>
+            ) : (
+              <div className="divide-y divide-gray-100">
+                {activity.slice(0, 5).map((item, idx) => (
+                  <ActivityItem key={idx} {...item} />
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* Quick Stats Summary */}
+          <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+            <h3 className="text-sm font-semibold text-gray-900 mb-3">Quick Summary</h3>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">Active Sessions</span>
+                <span className="font-medium">{summary.activeSessions}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Available Docks</span>
+                <span className="font-medium text-emerald-600">{summary.availableDocks}/{summary.totalDocks}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Loading</span>
+                <span className="font-medium text-blue-600">{summary.loadingDocks}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">Maintenance</span>
+                <span className="font-medium text-amber-600">{summary.maintenanceDocks}</span>
+              </div>
             </div>
           </div>
         </div>

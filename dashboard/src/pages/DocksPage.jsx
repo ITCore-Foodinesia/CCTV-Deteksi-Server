@@ -1,10 +1,12 @@
 /**
  * DocksPage - Manage docks with status cards and maintenance toggle
  * Based on new_theme/app.js design patterns
+ *
+ * UPDATED: Now uses useDocks hook for real Supabase data with realtime sync
  */
 
 import React, { useState, useMemo } from 'react';
-import { Building2, Plus, Wrench, CheckCircle, Clock, AlertTriangle, Edit2, Truck } from 'lucide-react';
+import { Building2, Plus, Wrench, CheckCircle, Clock, AlertTriangle, Edit2, Truck, Loader2, RefreshCw } from 'lucide-react';
 import {
   PageHeader,
   SearchInput,
@@ -16,78 +18,7 @@ import {
   Card,
   DOCK_STATUS_CLASSES,
 } from '../components/shared';
-
-// Mock data based on new_theme
-const MOCK_DOCKS = [
-  {
-    id: 'dock-001',
-    code: 'D-01',
-    name: 'Dock Utama 1',
-    type: 'loading',
-    status: 'available',
-    capacity: 'Large (>10t)',
-    current_truck: null,
-    current_driver: null,
-    notes: '',
-  },
-  {
-    id: 'dock-002',
-    code: 'D-02',
-    name: 'Dock Utama 2',
-    type: 'loading',
-    status: 'loading',
-    capacity: 'Large (>10t)',
-    current_truck: 'B 1234 XY',
-    current_driver: 'Budi Santoso',
-    session_start: '2024-03-15T08:30:00',
-    notes: '',
-  },
-  {
-    id: 'dock-003',
-    code: 'D-03',
-    name: 'Dock Samping',
-    type: 'unloading',
-    status: 'available',
-    capacity: 'Medium (5-10t)',
-    current_truck: null,
-    current_driver: null,
-    notes: '',
-  },
-  {
-    id: 'dock-004',
-    code: 'D-04',
-    name: 'Dock Belakang 1',
-    type: 'loading',
-    status: 'maintenance',
-    capacity: 'Small (<5t)',
-    current_truck: null,
-    current_driver: null,
-    notes: 'Perbaikan lantai - estimasi selesai 2 hari',
-  },
-  {
-    id: 'dock-005',
-    code: 'D-05',
-    name: 'Dock Belakang 2',
-    type: 'unloading',
-    status: 'unloading',
-    capacity: 'Medium (5-10t)',
-    current_truck: 'B 5678 AB',
-    current_driver: 'Ahmad Wijaya',
-    session_start: '2024-03-15T09:15:00',
-    notes: '',
-  },
-  {
-    id: 'dock-006',
-    code: 'D-06',
-    name: 'Dock Cadangan',
-    type: 'loading',
-    status: 'closed',
-    capacity: 'Large (>10t)',
-    current_truck: null,
-    current_driver: null,
-    notes: 'Tidak digunakan untuk sementara',
-  },
-];
+import { useDocks, DOCK_STATUS } from '../hooks';
 
 const STATUS_OPTIONS = [
   { value: 'available', label: 'Available' },
@@ -98,16 +29,10 @@ const STATUS_OPTIONS = [
   { value: 'closed', label: 'Closed' },
 ];
 
-const TYPE_OPTIONS = [
-  { value: 'loading', label: 'Loading' },
-  { value: 'unloading', label: 'Unloading' },
-  { value: 'both', label: 'Both' },
-];
-
 const CAPACITY_OPTIONS = [
-  { value: 'Small (<5t)', label: 'Small (<5t)' },
-  { value: 'Medium (5-10t)', label: 'Medium (5-10t)' },
-  { value: 'Large (>10t)', label: 'Large (>10t)' },
+  { value: '1', label: '1 truck' },
+  { value: '2', label: '2 trucks' },
+  { value: '3', label: '3 trucks' },
 ];
 
 const STATUS_ICONS = {
@@ -117,56 +42,72 @@ const STATUS_ICONS = {
   maintenance: Wrench,
   reserved: Clock,
   closed: AlertTriangle,
+  occupied: Clock,
 };
 
 const DocksPage = () => {
-  // State
-  const [docks, setDocks] = useState(MOCK_DOCKS);
+  // Use Supabase hook for real data with realtime sync
+  const {
+    docks,
+    loading,
+    error,
+    stats,
+    createDock,
+    updateDock,
+    setMaintenance,
+    setAvailable,
+    refetch,
+  } = useDocks();
+
+  // Local UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [modalOpen, setModalOpen] = useState(false);
   const [maintenanceModalOpen, setMaintenanceModalOpen] = useState(false);
   const [selectedDock, setSelectedDock] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    code: '',
-    name: '',
-    type: 'loading',
-    capacity: 'Medium (5-10t)',
+    dock_code: '',
+    dock_name: '',
+    warehouse_zone: '',
+    capacity: 1,
     status: 'available',
-    notes: '',
+    maintenance_reason: '',
   });
   const [maintenanceNote, setMaintenanceNote] = useState('');
 
   // Filter and search
   const filteredDocks = useMemo(() => {
     return docks.filter((dock) => {
+      const code = dock.dock_code || '';
+      const name = dock.dock_name || '';
       const matchesSearch =
-        dock.code.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        dock.name.toLowerCase().includes(searchQuery.toLowerCase());
+        code.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        name.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = !statusFilter || dock.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [docks, searchQuery, statusFilter]);
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: docks.length,
-    available: docks.filter((d) => d.status === 'available').length,
-    inUse: docks.filter((d) => ['loading', 'unloading'].includes(d.status)).length,
-    maintenance: docks.filter((d) => d.status === 'maintenance').length,
+  // Computed stats
+  const displayStats = useMemo(() => ({
+    total: stats.total,
+    available: stats.available,
+    inUse: docks.filter((d) => ['loading', 'unloading', 'occupied'].includes(d.status)).length,
+    maintenance: stats.maintenance,
     closed: docks.filter((d) => d.status === 'closed').length,
-  }), [docks]);
+  }), [stats, docks]);
 
   // Handlers
   const handleAdd = () => {
     setSelectedDock(null);
     setFormData({
-      code: '',
-      name: '',
-      type: 'loading',
-      capacity: 'Medium (5-10t)',
+      dock_code: '',
+      dock_name: '',
+      warehouse_zone: '',
+      capacity: 1,
       status: 'available',
-      notes: '',
+      maintenance_reason: '',
     });
     setModalOpen(true);
   };
@@ -174,35 +115,37 @@ const DocksPage = () => {
   const handleEdit = (dock) => {
     setSelectedDock(dock);
     setFormData({
-      code: dock.code,
-      name: dock.name,
-      type: dock.type,
-      capacity: dock.capacity,
-      status: dock.status,
-      notes: dock.notes,
+      dock_code: dock.dock_code || '',
+      dock_name: dock.dock_name || '',
+      warehouse_zone: dock.warehouse_zone || '',
+      capacity: dock.capacity || 1,
+      status: dock.status || 'available',
+      maintenance_reason: dock.maintenance_reason || '',
     });
     setModalOpen(true);
   };
 
-  const handleToggleMaintenance = (dock) => {
-    if (dock.status === 'maintenance') {
-      // Remove from maintenance
-      setDocks(docks.map((d) =>
-        d.id === dock.id ? { ...d, status: 'available', notes: '' } : d
-      ));
-    } else {
-      // Open maintenance modal
-      setSelectedDock(dock);
-      setMaintenanceNote('');
-      setMaintenanceModalOpen(true);
+  const handleToggleMaintenance = async (dock) => {
+    try {
+      if (dock.status === 'maintenance') {
+        await setAvailable(dock.id);
+      } else {
+        setSelectedDock(dock);
+        setMaintenanceNote('');
+        setMaintenanceModalOpen(true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle maintenance:', err);
     }
   };
 
-  const handleConfirmMaintenance = () => {
+  const handleConfirmMaintenance = async () => {
     if (selectedDock) {
-      setDocks(docks.map((d) =>
-        d.id === selectedDock.id ? { ...d, status: 'maintenance', notes: maintenanceNote } : d
-      ));
+      try {
+        await setMaintenance(selectedDock.id, maintenanceNote);
+      } catch (err) {
+        console.error('Failed to set maintenance:', err);
+      }
     }
     setMaintenanceModalOpen(false);
   };
@@ -212,26 +155,36 @@ const DocksPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     
-    if (selectedDock) {
-      // Update existing
-      setDocks(docks.map((d) =>
-        d.id === selectedDock.id ? { ...d, ...formData } : d
-      ));
-    } else {
-      // Add new
-      const newDock = {
-        id: `dock-${Date.now()}`,
-        ...formData,
-        current_truck: null,
-        current_driver: null,
-      };
-      setDocks([...docks, newDock]);
+    try {
+      if (selectedDock) {
+        await updateDock(selectedDock.id, {
+          dock_code: formData.dock_code,
+          dock_name: formData.dock_name,
+          warehouse_zone: formData.warehouse_zone,
+          capacity: parseInt(formData.capacity) || 1,
+          status: formData.status,
+          maintenance_reason: formData.maintenance_reason,
+        });
+      } else {
+        await createDock({
+          dock_code: formData.dock_code,
+          dock_name: formData.dock_name,
+          warehouse_zone: formData.warehouse_zone,
+          capacity: parseInt(formData.capacity) || 1,
+          status: formData.status,
+          maintenance_reason: formData.maintenance_reason,
+        });
+      }
+      setModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save dock:', err);
+    } finally {
+      setSubmitting(false);
     }
-    
-    setModalOpen(false);
   };
 
   const getStatusIcon = (status) => {
@@ -243,49 +196,83 @@ const DocksPage = () => {
     if (!startTime) return '';
     const start = new Date(startTime);
     const now = new Date();
-    const diff = Math.floor((now - start) / 1000 / 60); // minutes
+    const diff = Math.floor((now - start) / 1000 / 60);
     if (diff < 60) return `${diff}m`;
     const hours = Math.floor(diff / 60);
     const mins = diff % 60;
     return `${hours}h ${mins}m`;
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading docks...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="rounded-xl border border-red-200 bg-red-50 p-4">
+        <div className="flex items-center gap-2 text-red-600">
+          <AlertTriangle className="h-5 w-5" />
+          <span>Failed to load docks: {error.message}</span>
+        </div>
+        <button onClick={refetch} className="mt-2 text-sm text-red-600 underline">
+          Try again
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
         title="Docks"
-        subtitle={`Manage loading/unloading docks (${stats.total} total)`}
+        subtitle={`Manage loading/unloading docks (${displayStats.total} total)`}
       >
-        <PrimaryButton onClick={handleAdd}>
-          <span className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Dock
-          </span>
-        </PrimaryButton>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refetch}
+            className="rounded-lg border border-gray-200 bg-white p-2 hover:bg-gray-50"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <PrimaryButton onClick={handleAdd}>
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Dock
+            </span>
+          </PrimaryButton>
+        </div>
       </PageHeader>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
         <Card>
           <div className="text-sm text-gray-500">Total Docks</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.total}</div>
+          <div className="mt-1 text-2xl font-semibold">{displayStats.total}</div>
         </Card>
         <Card>
           <div className="text-sm text-gray-500">Available</div>
-          <div className="mt-1 text-2xl font-semibold text-emerald-600">{stats.available}</div>
+          <div className="mt-1 text-2xl font-semibold text-emerald-600">{displayStats.available}</div>
         </Card>
         <Card>
           <div className="text-sm text-gray-500">In Use</div>
-          <div className="mt-1 text-2xl font-semibold text-orange-600">{stats.inUse}</div>
+          <div className="mt-1 text-2xl font-semibold text-orange-600">{displayStats.inUse}</div>
         </Card>
         <Card>
           <div className="text-sm text-gray-500">Maintenance</div>
-          <div className="mt-1 text-2xl font-semibold text-red-600">{stats.maintenance}</div>
+          <div className="mt-1 text-2xl font-semibold text-red-600">{displayStats.maintenance}</div>
         </Card>
         <Card>
           <div className="text-sm text-gray-500">Closed</div>
-          <div className="mt-1 text-2xl font-semibold text-gray-600">{stats.closed}</div>
+          <div className="mt-1 text-2xl font-semibold text-gray-600">{displayStats.closed}</div>
         </Card>
       </div>
 
@@ -324,8 +311,8 @@ const DocksPage = () => {
                     <StatusIcon className="h-5 w-5" />
                   </div>
                   <div>
-                    <div className="font-semibold">{dock.code}</div>
-                    <div className="text-sm opacity-80">{dock.name}</div>
+                    <div className="font-semibold">{dock.dock_code}</div>
+                    <div className="text-sm opacity-80">{dock.dock_name}</div>
                   </div>
                 </div>
                 <button
@@ -337,43 +324,42 @@ const DocksPage = () => {
                 </button>
               </div>
 
-              {/* Status & Type */}
+              {/* Status & Info */}
               <div className="mt-3 flex items-center gap-2">
                 <span className="rounded-full bg-white/50 px-2 py-0.5 text-xs font-medium uppercase tracking-wider">
                   {dock.status}
                 </span>
-                <span className="text-xs opacity-70">• {dock.type}</span>
-                <span className="text-xs opacity-70">• {dock.capacity}</span>
+                {dock.warehouse_zone && (
+                  <span className="text-xs opacity-70">• {dock.warehouse_zone}</span>
+                )}
+                <span className="text-xs opacity-70">• Capacity: {dock.capacity}</span>
               </div>
 
-              {/* Current Activity */}
-              {dock.current_truck && (
+              {/* Current Activity (from metadata) */}
+              {dock.metadata?.current_session && (
                 <div className="mt-3 rounded-xl bg-white/50 p-3">
                   <div className="flex items-center gap-2 text-sm">
                     <Truck className="h-4 w-4" />
-                    <span className="font-mono font-medium">{dock.current_truck}</span>
+                    <span className="font-mono font-medium">Active Session</span>
                   </div>
-                  <div className="mt-1 text-xs opacity-70">
-                    Driver: {dock.current_driver}
-                  </div>
-                  {dock.session_start && (
+                  {dock.metadata.occupied_at && (
                     <div className="mt-1 text-xs opacity-70">
-                      Duration: {formatDuration(dock.session_start)}
+                      Duration: {formatDuration(dock.metadata.occupied_at)}
                     </div>
                   )}
                 </div>
               )}
 
               {/* Notes */}
-              {dock.notes && (
+              {dock.maintenance_reason && (
                 <div className="mt-3 text-sm opacity-80">
-                  📝 {dock.notes}
+                  📝 {dock.maintenance_reason}
                 </div>
               )}
 
               {/* Actions */}
               <div className="mt-4 flex gap-2">
-                {dock.status !== 'loading' && dock.status !== 'unloading' && (
+                {dock.status !== 'loading' && dock.status !== 'unloading' && dock.status !== 'occupied' && (
                   <button
                     onClick={() => handleToggleMaintenance(dock)}
                     className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition-colors ${
@@ -395,7 +381,7 @@ const DocksPage = () => {
                     )}
                   </button>
                 )}
-                {(dock.status === 'loading' || dock.status === 'unloading') && (
+                {['loading', 'unloading', 'occupied'].includes(dock.status) && (
                   <div className="flex-1 rounded-xl bg-white/50 px-3 py-2 text-center text-xs font-medium">
                     🔒 In Progress
                   </div>
@@ -425,29 +411,28 @@ const DocksPage = () => {
           <div className="grid grid-cols-2 gap-4">
             <FormInput
               label="Dock Code"
-              name="code"
-              value={formData.code}
+              name="dock_code"
+              value={formData.dock_code}
               onChange={handleFormChange}
               placeholder="D-01"
               required
             />
             <FormInput
               label="Dock Name"
-              name="name"
-              value={formData.name}
+              name="dock_name"
+              value={formData.dock_name}
               onChange={handleFormChange}
               placeholder="Dock Utama 1"
               required
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <FormSelect
-              label="Type"
-              name="type"
-              value={formData.type}
+            <FormInput
+              label="Warehouse Zone"
+              name="warehouse_zone"
+              value={formData.warehouse_zone}
               onChange={handleFormChange}
-              options={TYPE_OPTIONS}
-              required
+              placeholder="Zone A"
             />
             <FormSelect
               label="Capacity"
@@ -468,8 +453,8 @@ const DocksPage = () => {
           />
           <FormInput
             label="Notes (optional)"
-            name="notes"
-            value={formData.notes}
+            name="maintenance_reason"
+            value={formData.maintenance_reason}
             onChange={handleFormChange}
             placeholder="Additional notes..."
           />
@@ -482,8 +467,14 @@ const DocksPage = () => {
             >
               Cancel
             </button>
-            <PrimaryButton type="submit">
-              {selectedDock ? 'Save Changes' : 'Add Dock'}
+            <PrimaryButton type="submit" disabled={submitting}>
+              {submitting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : selectedDock ? (
+                'Save Changes'
+              ) : (
+                'Add Dock'
+              )}
             </PrimaryButton>
           </div>
         </form>
@@ -498,14 +489,14 @@ const DocksPage = () => {
       >
         <div className="space-y-4">
           <p className="text-sm text-gray-600">
-            Setting <strong>{selectedDock?.code}</strong> to maintenance mode will make it unavailable for loading/unloading.
+            Setting dock <strong>{selectedDock?.dock_code}</strong> to maintenance mode.
           </p>
           <FormInput
-            label="Maintenance Reason"
-            name="reason"
+            label="Reason (optional)"
+            name="maintenanceNote"
             value={maintenanceNote}
             onChange={(e) => setMaintenanceNote(e.target.value)}
-            placeholder="e.g., Floor repair, equipment check..."
+            placeholder="Describe the maintenance issue..."
           />
           <div className="flex justify-end gap-3">
             <button
@@ -515,12 +506,9 @@ const DocksPage = () => {
             >
               Cancel
             </button>
-            <button
-              onClick={handleConfirmMaintenance}
-              className="rounded-xl bg-orange-500 px-4 py-2 text-sm font-semibold text-white hover:bg-orange-600"
-            >
+            <PrimaryButton onClick={handleConfirmMaintenance}>
               Confirm Maintenance
-            </button>
+            </PrimaryButton>
           </div>
         </div>
       </Modal>

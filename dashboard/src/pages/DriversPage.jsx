@@ -1,10 +1,14 @@
 /**
  * DriversPage - Manage drivers with table, filters, and add/edit modal
- * Based on new_theme/app.js design patterns
+ * 
+ * UPDATED: Now uses useDrivers hook for real Supabase integration
+ * - Data is fetched from Supabase PostgreSQL
+ * - Realtime updates via Supabase Realtime
+ * - CRUD operations sync with database
  */
 
-import React, { useState, useMemo } from 'react';
-import { User, Plus, Phone, Edit2, Trash2, MoreHorizontal } from 'lucide-react';
+import React, { useState, useMemo, useCallback } from 'react';
+import { User, Plus, Phone, Edit2, Trash2, MoreHorizontal, RefreshCw, Loader2 } from 'lucide-react';
 import {
   PageHeader,
   SearchInput,
@@ -19,64 +23,10 @@ import {
   Card,
 } from '../components/shared';
 
-// Mock data based on new_theme
-const MOCK_DRIVERS = [
-  {
-    id: 'd-001',
-    name: 'Budi Santoso',
-    phone: '+62 812-3456-7890',
-    license_plate: 'B 1234 XY',
-    truck_type: 'Fuso',
-    status: 'active',
-    created_at: '2024-01-15',
-  },
-  {
-    id: 'd-002',
-    name: 'Ahmad Wijaya',
-    phone: '+62 813-9876-5432',
-    license_plate: 'B 5678 AB',
-    truck_type: 'Hino',
-    status: 'active',
-    created_at: '2024-02-20',
-  },
-  {
-    id: 'd-003',
-    name: 'Dedi Kurniawan',
-    phone: '+62 815-1111-2222',
-    license_plate: 'B 9999 CD',
-    truck_type: 'Isuzu',
-    status: 'pending_approval',
-    created_at: '2024-03-10',
-  },
-  {
-    id: 'd-004',
-    name: 'Eko Prasetyo',
-    phone: '+62 816-3333-4444',
-    license_plate: 'B 7777 EF',
-    truck_type: 'Mitsubishi',
-    status: 'suspended',
-    created_at: '2024-01-05',
-  },
-  {
-    id: 'd-005',
-    name: 'Fajar Hidayat',
-    phone: '+62 817-5555-6666',
-    license_plate: 'B 2222 GH',
-    truck_type: 'Fuso',
-    status: 'active',
-    created_at: '2024-03-25',
-  },
-  {
-    id: 'd-006',
-    name: 'Gunawan Setiawan',
-    phone: '+62 818-7777-8888',
-    license_plate: 'B 4444 IJ',
-    truck_type: 'Hino',
-    status: 'active',
-    created_at: '2024-02-10',
-  },
-];
+// Import the Supabase hook
+import { useDrivers } from '../hooks';
 
+// Status options for filter and form
 const STATUS_OPTIONS = [
   { value: 'active', label: 'Active' },
   { value: 'pending_approval', label: 'Pending Approval' },
@@ -84,29 +34,35 @@ const STATUS_OPTIONS = [
   { value: 'inactive', label: 'Inactive' },
 ];
 
-const TRUCK_TYPE_OPTIONS = [
-  { value: 'Fuso', label: 'Fuso' },
-  { value: 'Hino', label: 'Hino' },
-  { value: 'Isuzu', label: 'Isuzu' },
-  { value: 'Mitsubishi', label: 'Mitsubishi' },
-  { value: 'UD Trucks', label: 'UD Trucks' },
-];
-
 const ITEMS_PER_PAGE = 10;
 
 const DriversPage = () => {
-  // State
-  const [drivers, setDrivers] = useState(MOCK_DRIVERS);
+  // Use the Supabase hook instead of local state
+  const {
+    drivers,
+    loading,
+    error,
+    stats,
+    createDriver,
+    updateDriver,
+    deleteDriver,
+    approveDriver,
+    suspendDriver,
+    refetch,
+  } = useDrivers();
+
+  // Local UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingDriver, setEditingDriver] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    license_plate: '',
-    truck_type: 'Fuso',
+    email: '',
+    driver_code: '',
     status: 'pending_approval',
   });
 
@@ -114,9 +70,10 @@ const DriversPage = () => {
   const filteredDrivers = useMemo(() => {
     return drivers.filter((driver) => {
       const matchesSearch =
-        driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        driver.phone.includes(searchQuery) ||
-        driver.license_plate.toLowerCase().includes(searchQuery.toLowerCase());
+        driver.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        driver.phone?.includes(searchQuery) ||
+        driver.email?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        driver.driver_code?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = !statusFilter || driver.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
@@ -140,22 +97,25 @@ const DriversPage = () => {
             <User className="h-4 w-4 text-gray-600" />
           </div>
           <div>
-            <div className="font-medium text-gray-900">{value}</div>
-            <div className="text-xs text-gray-500">{row.phone}</div>
+            <div className="font-medium text-gray-900">{value || 'Unknown'}</div>
+            <div className="text-xs text-gray-500">{row.phone || 'No phone'}</div>
           </div>
         </div>
       ),
     },
     {
-      key: 'license_plate',
-      label: 'License Plate',
+      key: 'driver_code',
+      label: 'Code',
       render: (value) => (
-        <span className="font-mono text-sm">{value}</span>
+        <span className="font-mono text-sm text-gray-600">{value || '-'}</span>
       ),
     },
     {
-      key: 'truck_type',
-      label: 'Truck Type',
+      key: 'email',
+      label: 'Email',
+      render: (value) => (
+        <span className="text-sm text-gray-600">{value || '-'}</span>
+      ),
     },
     {
       key: 'status',
@@ -164,31 +124,36 @@ const DriversPage = () => {
     },
     {
       key: 'created_at',
-      label: 'Joined',
-      render: (value) => new Date(value).toLocaleDateString('id-ID'),
+      label: 'Registered',
+      render: (value) => (
+        <span className="text-sm text-gray-500">
+          {value ? new Date(value).toLocaleDateString() : '-'}
+        </span>
+      ),
     },
     {
       key: 'actions',
       label: '',
       render: (_, row) => (
-        <div className="flex items-center gap-1">
+        <div className="flex justify-end gap-1">
+          {row.status === 'pending_approval' && (
+            <button
+              onClick={() => handleApprove(row.id)}
+              className="rounded-lg p-2 text-emerald-600 hover:bg-emerald-50"
+              title="Approve"
+            >
+              ✓
+            </button>
+          )}
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleEdit(row);
-            }}
-            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
-            title="Edit"
+            onClick={() => handleEdit(row)}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
           >
             <Edit2 className="h-4 w-4" />
           </button>
           <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleDelete(row.id);
-            }}
-            className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
-            title="Delete"
+            onClick={() => handleDelete(row.id)}
+            className="rounded-lg p-2 text-red-500 hover:bg-red-50"
           >
             <Trash2 className="h-4 w-4" />
           </button>
@@ -203,8 +168,8 @@ const DriversPage = () => {
     setFormData({
       name: '',
       phone: '',
-      license_plate: '',
-      truck_type: 'Fuso',
+      email: '',
+      driver_code: '',
       status: 'pending_approval',
     });
     setModalOpen(true);
@@ -213,18 +178,32 @@ const DriversPage = () => {
   const handleEdit = (driver) => {
     setEditingDriver(driver);
     setFormData({
-      name: driver.name,
-      phone: driver.phone,
-      license_plate: driver.license_plate,
-      truck_type: driver.truck_type,
-      status: driver.status,
+      name: driver.name || '',
+      phone: driver.phone || '',
+      email: driver.email || '',
+      driver_code: driver.driver_code || '',
+      status: driver.status || 'pending_approval',
     });
     setModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this driver?')) {
-      setDrivers(drivers.filter((d) => d.id !== id));
+      try {
+        await deleteDriver(id, true); // hard delete
+        // No need to update local state - realtime will handle it
+      } catch (err) {
+        alert(`Failed to delete: ${err.message}`);
+      }
+    }
+  };
+
+  const handleApprove = async (id) => {
+    try {
+      await approveDriver(id);
+      // Realtime will update the UI
+    } catch (err) {
+      alert(`Failed to approve: ${err.message}`);
     }
   };
 
@@ -233,34 +212,51 @@ const DriversPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+    setSubmitting(true);
     
-    if (editingDriver) {
-      // Update existing
-      setDrivers(drivers.map((d) =>
-        d.id === editingDriver.id ? { ...d, ...formData } : d
-      ));
-    } else {
-      // Add new
-      const newDriver = {
-        id: `d-${Date.now()}`,
-        ...formData,
-        created_at: new Date().toISOString().split('T')[0],
-      };
-      setDrivers([newDriver, ...drivers]);
+    try {
+      if (editingDriver) {
+        // Update existing
+        await updateDriver(editingDriver.id, formData);
+      } else {
+        // Create new
+        await createDriver(formData);
+      }
+      setModalOpen(false);
+    } catch (err) {
+      alert(`Failed to save: ${err.message}`);
+    } finally {
+      setSubmitting(false);
     }
-    
-    setModalOpen(false);
   };
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: drivers.length,
-    active: drivers.filter((d) => d.status === 'active').length,
-    pending: drivers.filter((d) => d.status === 'pending_approval').length,
-    suspended: drivers.filter((d) => d.status === 'suspended').length,
-  }), [drivers]);
+  // Loading state
+  if (loading && drivers.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading drivers...</span>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="rounded-lg bg-red-50 p-6 text-center">
+        <h3 className="text-lg font-medium text-red-800">Error loading drivers</h3>
+        <p className="mt-2 text-sm text-red-600">{error}</p>
+        <button
+          onClick={refetch}
+          className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -269,12 +265,21 @@ const DriversPage = () => {
         title="Drivers"
         subtitle={`Manage your registered drivers (${stats.total} total)`}
       >
-        <PrimaryButton onClick={handleAdd}>
-          <span className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Driver
-          </span>
-        </PrimaryButton>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refetch}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <PrimaryButton onClick={handleAdd}>
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Driver
+            </span>
+          </PrimaryButton>
+        </div>
       </PageHeader>
 
       {/* Stats Cards */}
@@ -303,7 +308,7 @@ const DriversPage = () => {
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search by name, phone, or plate..."
+            placeholder="Search by name, phone, email, or code..."
           />
         </div>
         <SelectFilter
@@ -313,6 +318,14 @@ const DriversPage = () => {
           placeholder="All Status"
         />
       </div>
+
+      {/* Realtime indicator */}
+      {loading && drivers.length > 0 && (
+        <div className="flex items-center gap-2 text-sm text-gray-500">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          <span>Syncing...</span>
+        </div>
+      )}
 
       {/* Table */}
       <DataTable
@@ -350,23 +363,21 @@ const DriversPage = () => {
             value={formData.phone}
             onChange={handleFormChange}
             placeholder="+62 8xx-xxxx-xxxx"
-            required
           />
           <FormInput
-            label="License Plate"
-            name="license_plate"
-            value={formData.license_plate}
+            label="Email"
+            name="email"
+            type="email"
+            value={formData.email}
             onChange={handleFormChange}
-            placeholder="B 1234 XY"
-            required
+            placeholder="driver@example.com"
           />
-          <FormSelect
-            label="Truck Type"
-            name="truck_type"
-            value={formData.truck_type}
+          <FormInput
+            label="Driver Code"
+            name="driver_code"
+            value={formData.driver_code}
             onChange={handleFormChange}
-            options={TRUCK_TYPE_OPTIONS}
-            required
+            placeholder="DRV-001"
           />
           <FormSelect
             label="Status"
@@ -382,11 +393,19 @@ const DriversPage = () => {
               type="button"
               onClick={() => setModalOpen(false)}
               className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={submitting}
             >
               Cancel
             </button>
-            <PrimaryButton type="submit">
-              {editingDriver ? 'Save Changes' : 'Add Driver'}
+            <PrimaryButton type="submit" disabled={submitting}>
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Saving...
+                </span>
+              ) : (
+                editingDriver ? 'Save Changes' : 'Add Driver'
+              )}
             </PrimaryButton>
           </div>
         </form>

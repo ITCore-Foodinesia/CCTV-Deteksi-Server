@@ -1,10 +1,12 @@
 /**
  * TrucksPage - Manage trucks with table, filters, and add/edit modal
  * Based on new_theme/app.js design patterns
+ * 
+ * Updated to use Supabase with real-time sync via useTrucks hook
  */
 
 import React, { useState, useMemo } from 'react';
-import { Truck, Plus, Edit2, Trash2, Fuel, Gauge } from 'lucide-react';
+import { Truck, Plus, Edit2, Trash2, Gauge, CheckCircle, XCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import {
   PageHeader,
   SearchInput,
@@ -18,81 +20,20 @@ import {
   StatusBadge,
   Card,
 } from '../components/shared';
+import { useTrucks } from '../hooks';
 
-// Mock data based on new_theme
-const MOCK_TRUCKS = [
-  {
-    id: 't-001',
-    license_plate: 'B 1234 XY',
-    brand: 'Fuso',
-    model: 'Fighter',
-    year: 2022,
-    capacity_tons: 10,
-    status: 'active',
-    driver_name: 'Budi Santoso',
-    last_maintenance: '2024-01-15',
-  },
-  {
-    id: 't-002',
-    license_plate: 'B 5678 AB',
-    brand: 'Hino',
-    model: 'Ranger',
-    year: 2021,
-    capacity_tons: 8,
-    status: 'active',
-    driver_name: 'Ahmad Wijaya',
-    last_maintenance: '2024-02-20',
-  },
-  {
-    id: 't-003',
-    license_plate: 'B 9999 CD',
-    brand: 'Isuzu',
-    model: 'Giga',
-    year: 2020,
-    capacity_tons: 12,
-    status: 'maintenance',
-    driver_name: 'Dedi Kurniawan',
-    last_maintenance: '2024-03-10',
-  },
-  {
-    id: 't-004',
-    license_plate: 'B 7777 EF',
-    brand: 'Mitsubishi',
-    model: 'Canter',
-    year: 2023,
-    capacity_tons: 6,
-    status: 'active',
-    driver_name: 'Eko Prasetyo',
-    last_maintenance: '2024-03-01',
-  },
-  {
-    id: 't-005',
-    license_plate: 'B 2222 GH',
-    brand: 'Fuso',
-    model: 'Super Great',
-    year: 2022,
-    capacity_tons: 15,
-    status: 'inactive',
-    driver_name: null,
-    last_maintenance: '2023-12-15',
-  },
-  {
-    id: 't-006',
-    license_plate: 'B 4444 IJ',
-    brand: 'Hino',
-    model: '500 Series',
-    year: 2021,
-    capacity_tons: 10,
-    status: 'active',
-    driver_name: 'Gunawan Setiawan',
-    last_maintenance: '2024-02-28',
-  },
+// Status options mapped to is_registered boolean
+const STATUS_OPTIONS = [
+  { value: 'registered', label: 'Registered' },
+  { value: 'unregistered', label: 'Unregistered' },
 ];
 
-const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'maintenance', label: 'Under Maintenance' },
-  { value: 'inactive', label: 'Inactive' },
+// Vehicle type options (from database schema)
+const TYPE_OPTIONS = [
+  { value: 'truck', label: 'Truck' },
+  { value: 'pickup', label: 'Pickup' },
+  { value: 'van', label: 'Van' },
+  { value: 'container', label: 'Container' },
 ];
 
 const BRAND_OPTIONS = [
@@ -106,36 +47,65 @@ const BRAND_OPTIONS = [
 const ITEMS_PER_PAGE = 10;
 
 const TrucksPage = () => {
-  // State
-  const [trucks, setTrucks] = useState(MOCK_TRUCKS);
+  // Use Supabase hook for real data with realtime sync
+  const {
+    trucks,
+    loading,
+    error,
+    stats,
+    createTruck,
+    updateTruck,
+    deleteTruck,
+    registerTruck,
+    unregisterTruck,
+    refetch,
+  } = useTrucks();
+
+  // Local UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [brandFilter, setBrandFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingTruck, setEditingTruck] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
-    license_plate: '',
+    plate_number: '',
+    vehicle_type: 'truck',
     brand: 'Fuso',
     model: '',
     year: new Date().getFullYear(),
-    capacity_tons: 10,
-    status: 'active',
+    capacity_kg: 10000,
+    is_registered: true,
   });
 
   // Filter and search
   const filteredTrucks = useMemo(() => {
     return trucks.filter((truck) => {
+      // Search across plate number, brand, model
+      const plateNumber = truck.plate_number || '';
+      const brand = truck.brand || '';
+      const model = truck.model || '';
+      const vehicleType = truck.vehicle_type || '';
+      
       const matchesSearch =
-        truck.license_plate.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        truck.brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        truck.model.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (truck.driver_name && truck.driver_name.toLowerCase().includes(searchQuery.toLowerCase()));
-      const matchesStatus = !statusFilter || truck.status === statusFilter;
-      const matchesBrand = !brandFilter || truck.brand === brandFilter;
-      return matchesSearch && matchesStatus && matchesBrand;
+        plateNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        brand.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        model.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        vehicleType.toLowerCase().includes(searchQuery.toLowerCase());
+      
+      // Status filter (registered/unregistered)
+      const matchesStatus =
+        !statusFilter ||
+        (statusFilter === 'registered' && truck.is_registered) ||
+        (statusFilter === 'unregistered' && !truck.is_registered);
+      
+      // Type filter
+      const matchesType = !typeFilter || truck.vehicle_type === typeFilter;
+      
+      return matchesSearch && matchesStatus && matchesType;
     });
-  }, [trucks, searchQuery, statusFilter, brandFilter]);
+  }, [trucks, searchQuery, statusFilter, typeFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredTrucks.length / ITEMS_PER_PAGE);
@@ -144,10 +114,15 @@ const TrucksPage = () => {
     page * ITEMS_PER_PAGE
   );
 
-  // Table columns
+  // Reset page when filters change
+  useMemo(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, typeFilter]);
+
+  // Table columns - mapped to database schema
   const columns = [
     {
-      key: 'license_plate',
+      key: 'plate_number',
       label: 'Truck',
       render: (value, row) => (
         <div className="flex items-center gap-3">
@@ -155,46 +130,71 @@ const TrucksPage = () => {
             <Truck className="h-4 w-4 text-gray-600" />
           </div>
           <div>
-            <div className="font-mono font-medium text-gray-900">{value}</div>
-            <div className="text-xs text-gray-500">{row.brand} {row.model}</div>
+            <div className="font-mono font-medium text-gray-900">
+              {value || '-'}
+            </div>
+            <div className="text-xs text-gray-500">
+              {row.brand || ''} {row.model || ''} {row.year ? `(${row.year})` : ''}
+            </div>
           </div>
         </div>
       ),
     },
     {
-      key: 'year',
-      label: 'Year',
+      key: 'vehicle_type',
+      label: 'Type',
+      render: (value) => (
+        <span className="capitalize">{value || 'Unknown'}</span>
+      ),
     },
     {
-      key: 'capacity_tons',
+      key: 'capacity_kg',
       label: 'Capacity',
       render: (value) => (
         <div className="flex items-center gap-1">
           <Gauge className="h-4 w-4 text-gray-400" />
-          <span>{value} tons</span>
+          <span>{value ? `${(value / 1000).toFixed(1)}t` : '-'}</span>
         </div>
       ),
     },
     {
-      key: 'driver_name',
-      label: 'Assigned Driver',
-      render: (value) => value || <span className="text-gray-400">Unassigned</span>,
-    },
-    {
-      key: 'status',
+      key: 'is_registered',
       label: 'Status',
-      render: (value) => <StatusBadge status={value} />,
+      render: (value) => (
+        <StatusBadge status={value ? 'active' : 'inactive'}>
+          {value ? 'Registered' : 'Unregistered'}
+        </StatusBadge>
+      ),
     },
     {
-      key: 'last_maintenance',
-      label: 'Last Maintenance',
-      render: (value) => new Date(value).toLocaleDateString('id-ID'),
+      key: 'created_at',
+      label: 'Added',
+      render: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
     },
     {
       key: 'actions',
       label: '',
       render: (_, row) => (
         <div className="flex items-center gap-1">
+          {/* Toggle registration button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleRegistration(row);
+            }}
+            className={`rounded-lg p-2 ${
+              row.is_registered
+                ? 'text-gray-500 hover:bg-orange-50 hover:text-orange-600'
+                : 'text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'
+            }`}
+            title={row.is_registered ? 'Unregister' : 'Register'}
+          >
+            {row.is_registered ? (
+              <XCircle className="h-4 w-4" />
+            ) : (
+              <CheckCircle className="h-4 w-4" />
+            )}
+          </button>
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -224,12 +224,13 @@ const TrucksPage = () => {
   const handleAdd = () => {
     setEditingTruck(null);
     setFormData({
-      license_plate: '',
+      plate_number: '',
+      vehicle_type: 'truck',
       brand: 'Fuso',
       model: '',
       year: new Date().getFullYear(),
-      capacity_tons: 10,
-      status: 'active',
+      capacity_kg: 10000,
+      is_registered: true,
     });
     setModalOpen(true);
   };
@@ -237,97 +238,164 @@ const TrucksPage = () => {
   const handleEdit = (truck) => {
     setEditingTruck(truck);
     setFormData({
-      license_plate: truck.license_plate,
-      brand: truck.brand,
-      model: truck.model,
-      year: truck.year,
-      capacity_tons: truck.capacity_tons,
-      status: truck.status,
+      plate_number: truck.plate_number || '',
+      vehicle_type: truck.vehicle_type || 'truck',
+      brand: truck.brand || 'Fuso',
+      model: truck.model || '',
+      year: truck.year || new Date().getFullYear(),
+      capacity_kg: truck.capacity_kg || 10000,
+      is_registered: truck.is_registered ?? true,
     });
     setModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this truck?')) {
-      setTrucks(trucks.filter((t) => t.id !== id));
+      try {
+        await deleteTruck(id);
+      } catch (err) {
+        console.error('Failed to delete truck:', err);
+        alert('Failed to delete truck. Please try again.');
+      }
+    }
+  };
+
+  const handleToggleRegistration = async (truck) => {
+    try {
+      if (truck.is_registered) {
+        await unregisterTruck(truck.id);
+      } else {
+        await registerTruck(truck.id);
+      }
+    } catch (err) {
+      console.error('Failed to toggle registration:', err);
+      alert('Failed to update truck status. Please try again.');
     }
   };
 
   const handleFormChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: name === 'year' || name === 'capacity_tons' ? Number(value) : value 
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
+      ...prev,
+      [name]: type === 'checkbox'
+        ? checked
+        : (name === 'year' || name === 'capacity_kg')
+          ? Number(value)
+          : value,
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (editingTruck) {
-      // Update existing
-      setTrucks(trucks.map((t) =>
-        t.id === editingTruck.id ? { ...t, ...formData } : t
-      ));
-    } else {
-      // Add new
-      const newTruck = {
-        id: `t-${Date.now()}`,
-        ...formData,
-        driver_name: null,
-        last_maintenance: new Date().toISOString().split('T')[0],
-      };
-      setTrucks([newTruck, ...trucks]);
+    setSubmitting(true);
+
+    try {
+      if (editingTruck) {
+        // Update existing
+        await updateTruck(editingTruck.id, formData);
+      } else {
+        // Create new
+        await createTruck(formData);
+      }
+      setModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save truck:', err);
+      alert(err.message || 'Failed to save truck. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    
-    setModalOpen(false);
   };
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: trucks.length,
-    active: trucks.filter((t) => t.status === 'active').length,
-    maintenance: trucks.filter((t) => t.status === 'maintenance').length,
-    inactive: trucks.filter((t) => t.status === 'inactive').length,
-    totalCapacity: trucks.filter((t) => t.status === 'active').reduce((sum, t) => sum + t.capacity_tons, 0),
-  }), [trucks]);
+  // Computed stats (use stats from hook + local computation for capacity)
+  const computedStats = useMemo(() => {
+    const totalCapacity = trucks
+      .filter((t) => t.is_registered)
+      .reduce((sum, t) => sum + (t.capacity_kg || 0), 0);
+    
+    return {
+      ...stats,
+      totalCapacity: Math.round(totalCapacity / 1000), // Convert to tons
+    };
+  }, [stats, trucks]);
+
+  // Loading state
+  if (loading && trucks.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm text-gray-500">Loading trucks...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && trucks.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <p className="text-sm text-gray-700">Failed to load trucks</p>
+          <p className="text-xs text-gray-500">{error.message}</p>
+          <button
+            onClick={refetch}
+            className="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
         title="Trucks"
-        subtitle={`Manage your fleet vehicles (${stats.total} total)`}
+        subtitle={`Manage your fleet vehicles (${computedStats.total} total)`}
       >
-        <PrimaryButton onClick={handleAdd}>
-          <span className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Truck
-          </span>
-        </PrimaryButton>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refetch}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <PrimaryButton onClick={handleAdd}>
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Truck
+            </span>
+          </PrimaryButton>
+        </div>
       </PageHeader>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Card>
           <div className="text-sm text-gray-500">Total Fleet</div>
-          <div className="mt-1 text-2xl font-semibold">{stats.total}</div>
+          <div className="mt-1 text-2xl font-semibold">{computedStats.total}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Active</div>
-          <div className="mt-1 text-2xl font-semibold text-emerald-600">{stats.active}</div>
+          <div className="text-sm text-gray-500">Registered</div>
+          <div className="mt-1 text-2xl font-semibold text-emerald-600">
+            {computedStats.registered}
+          </div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Maintenance</div>
-          <div className="mt-1 text-2xl font-semibold text-orange-600">{stats.maintenance}</div>
-        </Card>
-        <Card>
-          <div className="text-sm text-gray-500">Inactive</div>
-          <div className="mt-1 text-2xl font-semibold text-gray-600">{stats.inactive}</div>
+          <div className="text-sm text-gray-500">Unregistered</div>
+          <div className="mt-1 text-2xl font-semibold text-orange-600">
+            {computedStats.unregistered}
+          </div>
         </Card>
         <Card>
           <div className="text-sm text-gray-500">Total Capacity</div>
-          <div className="mt-1 text-2xl font-semibold text-blue-600">{stats.totalCapacity}t</div>
+          <div className="mt-1 text-2xl font-semibold text-blue-600">
+            {computedStats.totalCapacity}t
+          </div>
         </Card>
       </div>
 
@@ -337,7 +405,7 @@ const TrucksPage = () => {
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search by plate, brand, model, or driver..."
+            placeholder="Search by plate, brand, model, or type..."
           />
         </div>
         <SelectFilter
@@ -347,10 +415,10 @@ const TrucksPage = () => {
           placeholder="All Status"
         />
         <SelectFilter
-          value={brandFilter}
-          onChange={setBrandFilter}
-          options={BRAND_OPTIONS}
-          placeholder="All Brands"
+          value={typeFilter}
+          onChange={setTypeFilter}
+          options={TYPE_OPTIONS}
+          placeholder="All Types"
         />
       </div>
 
@@ -377,14 +445,23 @@ const TrucksPage = () => {
       >
         <form onSubmit={handleSubmit}>
           <FormInput
-            label="License Plate"
-            name="license_plate"
-            value={formData.license_plate}
+            label="Plate Number"
+            name="plate_number"
+            value={formData.plate_number}
             onChange={handleFormChange}
             placeholder="B 1234 XY"
             required
           />
+          
           <div className="grid grid-cols-2 gap-4">
+            <FormSelect
+              label="Vehicle Type"
+              name="vehicle_type"
+              value={formData.vehicle_type}
+              onChange={handleFormChange}
+              options={TYPE_OPTIONS}
+              required
+            />
             <FormSelect
               label="Brand"
               name="brand"
@@ -393,52 +470,72 @@ const TrucksPage = () => {
               options={BRAND_OPTIONS}
               required
             />
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4">
             <FormInput
               label="Model"
               name="model"
               value={formData.model}
               onChange={handleFormChange}
               placeholder="Fighter, Ranger, etc."
-              required
             />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
             <FormInput
               label="Year"
               name="year"
               type="number"
               value={formData.year}
               onChange={handleFormChange}
-              required
-            />
-            <FormInput
-              label="Capacity (tons)"
-              name="capacity_tons"
-              type="number"
-              value={formData.capacity_tons}
-              onChange={handleFormChange}
-              required
+              min="1990"
+              max={new Date().getFullYear() + 1}
             />
           </div>
-          <FormSelect
-            label="Status"
-            name="status"
-            value={formData.status}
-            onChange={handleFormChange}
-            options={STATUS_OPTIONS}
-            required
-          />
+          
+          <div className="grid grid-cols-2 gap-4">
+            <FormInput
+              label="Capacity (kg)"
+              name="capacity_kg"
+              type="number"
+              value={formData.capacity_kg}
+              onChange={handleFormChange}
+              min="0"
+              step="100"
+            />
+            <div className="flex items-center gap-2 pt-6">
+              <input
+                type="checkbox"
+                id="is_registered"
+                name="is_registered"
+                checked={formData.is_registered}
+                onChange={handleFormChange}
+                className="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+              />
+              <label htmlFor="is_registered" className="text-sm text-gray-700">
+                Registered
+              </label>
+            </div>
+          </div>
 
           <div className="mt-6 flex justify-end gap-3">
             <button
               type="button"
               onClick={() => setModalOpen(false)}
               className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={submitting}
             >
               Cancel
             </button>
-            <PrimaryButton type="submit">
-              {editingTruck ? 'Save Changes' : 'Add Truck'}
+            <PrimaryButton type="submit" disabled={submitting}>
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Saving...
+                </span>
+              ) : editingTruck ? (
+                'Save Changes'
+              ) : (
+                'Add Truck'
+              )}
             </PrimaryButton>
           </div>
         </form>

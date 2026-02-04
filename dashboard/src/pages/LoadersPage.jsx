@@ -1,10 +1,12 @@
 /**
  * LoadersPage - Manage loaders/forklift operators with table and status management
  * Based on new_theme/app.js design patterns
+ * 
+ * Updated to use Supabase with real-time sync via useLoaders hook
  */
 
 import React, { useState, useMemo } from 'react';
-import { Package, Plus, Edit2, Trash2, UserCheck, UserX, Forklift } from 'lucide-react';
+import { Package, Plus, Edit2, Trash2, UserCheck, UserX, Coffee, Clock, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   PageHeader,
   SearchInput,
@@ -18,147 +20,93 @@ import {
   StatusBadge,
   Card,
 } from '../components/shared';
-
-// Mock data based on new_theme
-const MOCK_LOADERS = [
-  {
-    id: 'l-001',
-    name: 'Hendra Gunawan',
-    phone: '+62 812-2222-3333',
-    license_type: 'Forklift',
-    license_number: 'FL-2024-001',
-    status: 'active',
-    assigned_dock: 'D-01',
-    shift: 'morning',
-    experience_years: 5,
-    created_at: '2024-01-08',
-  },
-  {
-    id: 'l-002',
-    name: 'Irwan Setiawan',
-    phone: '+62 813-4444-5555',
-    license_type: 'Forklift',
-    license_number: 'FL-2024-002',
-    status: 'active',
-    assigned_dock: 'D-02',
-    shift: 'morning',
-    experience_years: 3,
-    created_at: '2024-02-12',
-  },
-  {
-    id: 'l-003',
-    name: 'Joko Widodo',
-    phone: '+62 815-6666-7777',
-    license_type: 'Hand Pallet',
-    license_number: 'HP-2024-001',
-    status: 'active',
-    assigned_dock: 'D-03',
-    shift: 'afternoon',
-    experience_years: 2,
-    created_at: '2024-01-20',
-  },
-  {
-    id: 'l-004',
-    name: 'Kurniawan Adi',
-    phone: '+62 816-8888-9999',
-    license_type: 'Forklift',
-    license_number: 'FL-2024-003',
-    status: 'inactive',
-    assigned_dock: null,
-    shift: 'morning',
-    experience_years: 4,
-    created_at: '2024-03-05',
-  },
-  {
-    id: 'l-005',
-    name: 'Lukman Hakim',
-    phone: '+62 817-0000-1111',
-    license_type: 'Reach Truck',
-    license_number: 'RT-2024-001',
-    status: 'active',
-    assigned_dock: 'D-05',
-    shift: 'afternoon',
-    experience_years: 6,
-    created_at: '2024-02-25',
-  },
-  {
-    id: 'l-006',
-    name: 'Mulyadi Santoso',
-    phone: '+62 818-2323-4545',
-    license_type: 'Hand Pallet',
-    license_number: 'HP-2024-002',
-    status: 'suspended',
-    assigned_dock: null,
-    shift: 'morning',
-    experience_years: 1,
-    created_at: '2024-01-15',
-  },
-];
+import { useLoaders, LOADER_STATUS, useDocks } from '../hooks';
 
 const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'suspended', label: 'Suspended' },
+  { value: 'available', label: 'Available' },
+  { value: 'assigned', label: 'Assigned' },
+  { value: 'on_break', label: 'On Break' },
+  { value: 'off_duty', label: 'Off Duty' },
 ];
 
-const LICENSE_TYPE_OPTIONS = [
-  { value: 'Forklift', label: 'Forklift' },
-  { value: 'Reach Truck', label: 'Reach Truck' },
-  { value: 'Hand Pallet', label: 'Hand Pallet' },
-  { value: 'Order Picker', label: 'Order Picker' },
-];
-
-const SHIFT_OPTIONS = [
-  { value: 'morning', label: 'Morning (06:00 - 14:00)' },
-  { value: 'afternoon', label: 'Afternoon (14:00 - 22:00)' },
-  { value: 'night', label: 'Night (22:00 - 06:00)' },
-];
-
-const DOCK_OPTIONS = [
-  { value: '', label: 'Unassigned' },
-  { value: 'D-01', label: 'D-01 - Dock Utama 1' },
-  { value: 'D-02', label: 'D-02 - Dock Utama 2' },
-  { value: 'D-03', label: 'D-03 - Dock Samping' },
-  { value: 'D-04', label: 'D-04 - Dock Belakang 1' },
-  { value: 'D-05', label: 'D-05 - Dock Belakang 2' },
-  { value: 'D-06', label: 'D-06 - Dock Cadangan' },
+const SPECIALTY_OPTIONS = [
+  { value: '', label: 'None' },
+  { value: 'forklift', label: 'Forklift' },
+  { value: 'reach_truck', label: 'Reach Truck' },
+  { value: 'hand_pallet', label: 'Hand Pallet' },
+  { value: 'order_picker', label: 'Order Picker' },
+  { value: 'general', label: 'General' },
 ];
 
 const ITEMS_PER_PAGE = 10;
 
 const LoadersPage = () => {
-  // State
-  const [loaders, setLoaders] = useState(MOCK_LOADERS);
+  // Use Supabase hooks for real data with realtime sync
+  const {
+    loaders,
+    loading,
+    error,
+    stats,
+    createLoader,
+    updateLoader,
+    deleteLoader,
+    setAvailable,
+    setOnBreak,
+    setOffDuty,
+    releaseLoader,
+    refetch,
+  } = useLoaders();
+
+  // Get docks for assignment dropdown
+  const { docks } = useDocks();
+
+  // Local UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [licenseFilter, setLicenseFilter] = useState('');
+  const [specialtyFilter, setSpecialtyFilter] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingLoader, setEditingLoader] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    license_type: 'Forklift',
-    license_number: '',
-    status: 'active',
-    assigned_dock: '',
-    shift: 'morning',
-    experience_years: 0,
+    loader_code: '',
+    specialty: '',
+    status: 'available',
   });
+
+  // Build dock options
+  const dockOptions = useMemo(() => {
+    return [
+      { value: '', label: 'Unassigned' },
+      ...docks.map((dock) => ({
+        value: dock.id,
+        label: `${dock.dock_code || dock.code || dock.id} - ${dock.dock_name || dock.name || 'Unnamed'}`,
+      })),
+    ];
+  }, [docks]);
 
   // Filter and search
   const filteredLoaders = useMemo(() => {
     return loaders.filter((loader) => {
+      const name = loader.name || '';
+      const phone = loader.phone || '';
+      const loaderCode = loader.loader_code || '';
+      const specialty = loader.specialty || '';
+      
       const matchesSearch =
-        loader.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        loader.phone.includes(searchQuery) ||
-        loader.license_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (loader.assigned_dock && loader.assigned_dock.toLowerCase().includes(searchQuery.toLowerCase()));
+        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        phone.includes(searchQuery) ||
+        loaderCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        specialty.toLowerCase().includes(searchQuery.toLowerCase());
+      
       const matchesStatus = !statusFilter || loader.status === statusFilter;
-      const matchesLicense = !licenseFilter || loader.license_type === licenseFilter;
-      return matchesSearch && matchesStatus && matchesLicense;
+      const matchesSpecialty = !specialtyFilter || loader.specialty === specialtyFilter;
+      
+      return matchesSearch && matchesStatus && matchesSpecialty;
     });
-  }, [loaders, searchQuery, statusFilter, licenseFilter]);
+  }, [loaders, searchQuery, statusFilter, specialtyFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredLoaders.length / ITEMS_PER_PAGE);
@@ -166,6 +114,27 @@ const LoadersPage = () => {
     (page - 1) * ITEMS_PER_PAGE,
     page * ITEMS_PER_PAGE
   );
+
+  // Reset page when filters change
+  useMemo(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter, specialtyFilter]);
+
+  // Get status badge variant
+  const getStatusVariant = (status) => {
+    switch (status) {
+      case LOADER_STATUS.AVAILABLE:
+        return 'success';
+      case LOADER_STATUS.ASSIGNED:
+        return 'warning';
+      case LOADER_STATUS.ON_BREAK:
+        return 'info';
+      case LOADER_STATUS.OFF_DUTY:
+        return 'inactive';
+      default:
+        return 'default';
+    }
+  };
 
   // Table columns
   const columns = [
@@ -178,75 +147,108 @@ const LoadersPage = () => {
             <Package className="h-4 w-4 text-purple-600" />
           </div>
           <div>
-            <div className="font-medium text-gray-900">{value}</div>
-            <div className="text-xs text-gray-500">{row.phone}</div>
+            <div className="font-medium text-gray-900">{value || 'Unnamed'}</div>
+            <div className="text-xs text-gray-500">
+              {row.loader_code && <span className="font-mono">{row.loader_code} • </span>}
+              {row.phone || '-'}
+            </div>
           </div>
         </div>
       ),
     },
     {
-      key: 'license_type',
-      label: 'License Type',
-      render: (value, row) => (
-        <div>
-          <div className="text-sm font-medium">{value}</div>
-          <div className="text-xs text-gray-500">{row.license_number}</div>
-        </div>
-      ),
-    },
-    {
-      key: 'experience_years',
-      label: 'Experience',
+      key: 'specialty',
+      label: 'Specialty',
       render: (value) => (
-        <span className="text-sm">{value} {value === 1 ? 'year' : 'years'}</span>
-      ),
-    },
-    {
-      key: 'assigned_dock',
-      label: 'Assigned Dock',
-      render: (value) => value ? (
-        <span className="rounded-lg bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
-          {value}
+        <span className="capitalize text-sm">
+          {value?.replace('_', ' ') || 'General'}
         </span>
-      ) : (
-        <span className="text-gray-400">Unassigned</span>
-      ),
-    },
-    {
-      key: 'shift',
-      label: 'Shift',
-      render: (value) => (
-        <span className="capitalize">{value}</span>
       ),
     },
     {
       key: 'status',
       label: 'Status',
-      render: (value) => <StatusBadge status={value} />,
+      render: (value) => (
+        <StatusBadge status={getStatusVariant(value)}>
+          <span className="capitalize">{value?.replace('_', ' ') || 'Unknown'}</span>
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'current_dock_id',
+      label: 'Current Dock',
+      render: (value) => {
+        if (!value) {
+          return <span className="text-gray-400">-</span>;
+        }
+        // Find dock name
+        const dock = docks.find((d) => d.id === value);
+        return (
+          <span className="rounded-lg bg-purple-50 px-2 py-1 text-xs font-medium text-purple-700">
+            {dock?.dock_code || dock?.code || value}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'created_at',
+      label: 'Joined',
+      render: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
     },
     {
       key: 'actions',
       label: '',
       render: (_, row) => (
         <div className="flex items-center gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleStatus(row);
-            }}
-            className={`rounded-lg p-2 ${
-              row.status === 'active' 
-                ? 'text-gray-500 hover:bg-red-50 hover:text-red-600' 
-                : 'text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'
-            }`}
-            title={row.status === 'active' ? 'Deactivate' : 'Activate'}
-          >
-            {row.status === 'active' ? (
-              <UserX className="h-4 w-4" />
-            ) : (
+          {/* Status toggle buttons */}
+          {row.status === LOADER_STATUS.ASSIGNED && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRelease(row.id);
+              }}
+              className="rounded-lg p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600"
+              title="Release (Make Available)"
+            >
               <UserCheck className="h-4 w-4" />
-            )}
-          </button>
+            </button>
+          )}
+          {row.status === LOADER_STATUS.AVAILABLE && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSetOnBreak(row.id);
+                }}
+                className="rounded-lg p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600"
+                title="Set On Break"
+              >
+                <Coffee className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSetOffDuty(row.id);
+                }}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                title="Set Off Duty"
+              >
+                <Clock className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {(row.status === LOADER_STATUS.ON_BREAK || row.status === LOADER_STATUS.OFF_DUTY) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSetAvailable(row.id);
+              }}
+              className="rounded-lg p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600"
+              title="Set Available"
+            >
+              <UserCheck className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -278,12 +280,9 @@ const LoadersPage = () => {
     setFormData({
       name: '',
       phone: '',
-      license_type: 'Forklift',
-      license_number: '',
-      status: 'active',
-      assigned_dock: '',
-      shift: 'morning',
-      experience_years: 0,
+      loader_code: '',
+      specialty: '',
+      status: 'available',
     });
     setModalOpen(true);
   };
@@ -291,71 +290,118 @@ const LoadersPage = () => {
   const handleEdit = (loader) => {
     setEditingLoader(loader);
     setFormData({
-      name: loader.name,
-      phone: loader.phone,
-      license_type: loader.license_type,
-      license_number: loader.license_number,
-      status: loader.status,
-      assigned_dock: loader.assigned_dock || '',
-      shift: loader.shift,
-      experience_years: loader.experience_years,
+      name: loader.name || '',
+      phone: loader.phone || '',
+      loader_code: loader.loader_code || '',
+      specialty: loader.specialty || '',
+      status: loader.status || 'available',
     });
     setModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this loader?')) {
-      setLoaders(loaders.filter((l) => l.id !== id));
+      try {
+        await deleteLoader(id);
+      } catch (err) {
+        console.error('Failed to delete loader:', err);
+        alert('Failed to delete loader. Please try again.');
+      }
     }
   };
 
-  const handleToggleStatus = (loader) => {
-    const newStatus = loader.status === 'active' ? 'inactive' : 'active';
-    setLoaders(loaders.map((l) =>
-      l.id === loader.id ? { ...l, status: newStatus, assigned_dock: newStatus === 'inactive' ? null : l.assigned_dock } : l
-    ));
+  const handleSetAvailable = async (id) => {
+    try {
+      await setAvailable(id);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update loader status.');
+    }
+  };
+
+  const handleSetOnBreak = async (id) => {
+    try {
+      await setOnBreak(id);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update loader status.');
+    }
+  };
+
+  const handleSetOffDuty = async (id) => {
+    try {
+      await setOffDuty(id);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update loader status.');
+    }
+  };
+
+  const handleRelease = async (id) => {
+    try {
+      await releaseLoader(id);
+    } catch (err) {
+      console.error('Failed to release loader:', err);
+      alert('Failed to release loader.');
+    }
   };
 
   const handleFormChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ 
-      ...prev, 
-      [name]: name === 'experience_years' ? Number(value) : value 
-    }));
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (editingLoader) {
-      // Update existing
-      setLoaders(loaders.map((l) =>
-        l.id === editingLoader.id ? { ...l, ...formData, assigned_dock: formData.assigned_dock || null } : l
-      ));
-    } else {
-      // Add new
-      const newLoader = {
-        id: `l-${Date.now()}`,
-        ...formData,
-        assigned_dock: formData.assigned_dock || null,
-        created_at: new Date().toISOString().split('T')[0],
-      };
-      setLoaders([newLoader, ...loaders]);
+    setSubmitting(true);
+
+    try {
+      if (editingLoader) {
+        // Update existing
+        await updateLoader(editingLoader.id, formData);
+      } else {
+        // Create new
+        await createLoader(formData);
+      }
+      setModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save loader:', err);
+      alert(err.message || 'Failed to save loader. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    
-    setModalOpen(false);
   };
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: loaders.length,
-    active: loaders.filter((l) => l.status === 'active').length,
-    onDuty: loaders.filter((l) => l.status === 'active' && l.assigned_dock).length,
-    forklift: loaders.filter((l) => l.license_type === 'Forklift' && l.status === 'active').length,
-    avgExperience: loaders.length > 0 
-      ? Math.round(loaders.reduce((sum, l) => sum + l.experience_years, 0) / loaders.length * 10) / 10
-      : 0,
-  }), [loaders]);
+  // Loading state
+  if (loading && loaders.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm text-gray-500">Loading loaders...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && loaders.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <p className="text-sm text-gray-700">Failed to load loaders</p>
+          <p className="text-xs text-gray-500">{error.message}</p>
+          <button
+            onClick={refetch}
+            className="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -364,12 +410,21 @@ const LoadersPage = () => {
         title="Loaders"
         subtitle={`Manage forklift operators and loaders (${stats.total} total)`}
       >
-        <PrimaryButton onClick={handleAdd}>
-          <span className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Loader
-          </span>
-        </PrimaryButton>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refetch}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <PrimaryButton onClick={handleAdd}>
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Loader
+            </span>
+          </PrimaryButton>
+        </div>
       </PageHeader>
 
       {/* Stats Cards */}
@@ -379,20 +434,20 @@ const LoadersPage = () => {
           <div className="mt-1 text-2xl font-semibold">{stats.total}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Active</div>
-          <div className="mt-1 text-2xl font-semibold text-emerald-600">{stats.active}</div>
+          <div className="text-sm text-gray-500">Available</div>
+          <div className="mt-1 text-2xl font-semibold text-emerald-600">{stats.available}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">On Duty</div>
-          <div className="mt-1 text-2xl font-semibold text-purple-600">{stats.onDuty}</div>
+          <div className="text-sm text-gray-500">Assigned</div>
+          <div className="mt-1 text-2xl font-semibold text-purple-600">{stats.assigned}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Forklift Licensed</div>
-          <div className="mt-1 text-2xl font-semibold text-blue-600">{stats.forklift}</div>
+          <div className="text-sm text-gray-500">On Break</div>
+          <div className="mt-1 text-2xl font-semibold text-blue-600">{stats.onBreak}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Avg. Experience</div>
-          <div className="mt-1 text-2xl font-semibold text-orange-600">{stats.avgExperience}y</div>
+          <div className="text-sm text-gray-500">Off Duty</div>
+          <div className="mt-1 text-2xl font-semibold text-gray-600">{stats.offDuty}</div>
         </Card>
       </div>
 
@@ -402,7 +457,7 @@ const LoadersPage = () => {
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search by name, phone, license, or dock..."
+            placeholder="Search by name, phone, code, or specialty..."
           />
         </div>
         <SelectFilter
@@ -412,10 +467,10 @@ const LoadersPage = () => {
           placeholder="All Status"
         />
         <SelectFilter
-          value={licenseFilter}
-          onChange={setLicenseFilter}
-          options={LICENSE_TYPE_OPTIONS}
-          placeholder="All License Types"
+          value={specialtyFilter}
+          onChange={setSpecialtyFilter}
+          options={SPECIALTY_OPTIONS}
+          placeholder="All Specialties"
         />
       </div>
 
@@ -455,50 +510,20 @@ const LoadersPage = () => {
             value={formData.phone}
             onChange={handleFormChange}
             placeholder="+62 8xx-xxxx-xxxx"
-            required
           />
-          <div className="grid grid-cols-2 gap-4">
-            <FormSelect
-              label="License Type"
-              name="license_type"
-              value={formData.license_type}
-              onChange={handleFormChange}
-              options={LICENSE_TYPE_OPTIONS}
-              required
-            />
-            <FormInput
-              label="License Number"
-              name="license_number"
-              value={formData.license_number}
-              onChange={handleFormChange}
-              placeholder="FL-2024-XXX"
-              required
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <FormInput
-              label="Experience (years)"
-              name="experience_years"
-              type="number"
-              value={formData.experience_years}
-              onChange={handleFormChange}
-              required
-            />
-            <FormSelect
-              label="Shift"
-              name="shift"
-              value={formData.shift}
-              onChange={handleFormChange}
-              options={SHIFT_OPTIONS}
-              required
-            />
-          </div>
-          <FormSelect
-            label="Assigned Dock"
-            name="assigned_dock"
-            value={formData.assigned_dock}
+          <FormInput
+            label="Loader Code"
+            name="loader_code"
+            value={formData.loader_code}
             onChange={handleFormChange}
-            options={DOCK_OPTIONS}
+            placeholder="L001"
+          />
+          <FormSelect
+            label="Specialty"
+            name="specialty"
+            value={formData.specialty}
+            onChange={handleFormChange}
+            options={SPECIALTY_OPTIONS}
           />
           <FormSelect
             label="Status"
@@ -514,11 +539,21 @@ const LoadersPage = () => {
               type="button"
               onClick={() => setModalOpen(false)}
               className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={submitting}
             >
               Cancel
             </button>
-            <PrimaryButton type="submit">
-              {editingLoader ? 'Save Changes' : 'Add Loader'}
+            <PrimaryButton type="submit" disabled={submitting}>
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Saving...
+                </span>
+              ) : editingLoader ? (
+                'Save Changes'
+              ) : (
+                'Add Loader'
+              )}
             </PrimaryButton>
           </div>
         </form>

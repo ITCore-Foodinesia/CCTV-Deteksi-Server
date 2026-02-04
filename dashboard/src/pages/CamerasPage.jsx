@@ -1,144 +1,99 @@
 /**
- * CamerasPage - Manage CCTV cameras
+ * CamerasPage - View and manage CCTV cameras
  * Based on new_theme/app.js design patterns
+ * 
+ * Uses Supabase Real-time for live updates.
  */
 
 import React, { useState, useMemo } from 'react';
-import { Camera, Plus, Edit2, Trash2, Video, VideoOff, Settings, Eye } from 'lucide-react';
+import { Camera, Plus, Edit2, Trash2, Video, VideoOff, AlertTriangle, Loader2, RefreshCw, Settings } from 'lucide-react';
 import {
   PageHeader,
   SearchInput,
   SelectFilter,
   PrimaryButton,
+  DataTable,
+  Pagination,
   Modal,
   FormInput,
   FormSelect,
   StatusBadge,
   Card,
 } from '../components/shared';
-
-// Mock data
-const MOCK_CAMERAS = [
-  {
-    id: 'cam-001',
-    name: 'Dock 01 - Main View',
-    location: 'Dock Utama 1',
-    stream_url: 'rtsp://192.168.1.101:554/stream1',
-    status: 'online',
-    resolution: '1920x1080',
-    fps: 30,
-    recording: true,
-    last_seen: '2024-03-15T10:30:00',
-  },
-  {
-    id: 'cam-002',
-    name: 'Dock 02 - Main View',
-    location: 'Dock Utama 2',
-    stream_url: 'rtsp://192.168.1.102:554/stream1',
-    status: 'online',
-    resolution: '1920x1080',
-    fps: 30,
-    recording: true,
-    last_seen: '2024-03-15T10:30:00',
-  },
-  {
-    id: 'cam-003',
-    name: 'Dock 03 - Side View',
-    location: 'Dock Samping',
-    stream_url: 'rtsp://192.168.1.103:554/stream1',
-    status: 'online',
-    resolution: '1280x720',
-    fps: 25,
-    recording: true,
-    last_seen: '2024-03-15T10:30:00',
-  },
-  {
-    id: 'cam-004',
-    name: 'Entrance Gate',
-    location: 'Main Entrance',
-    stream_url: 'rtsp://192.168.1.104:554/stream1',
-    status: 'offline',
-    resolution: '1920x1080',
-    fps: 30,
-    recording: false,
-    last_seen: '2024-03-15T08:15:00',
-  },
-  {
-    id: 'cam-005',
-    name: 'Parking Area',
-    location: 'Truck Parking',
-    stream_url: 'rtsp://192.168.1.105:554/stream1',
-    status: 'online',
-    resolution: '1280x720',
-    fps: 15,
-    recording: true,
-    last_seen: '2024-03-15T10:30:00',
-  },
-  {
-    id: 'cam-006',
-    name: 'Warehouse Interior',
-    location: 'Inside Warehouse',
-    stream_url: 'rtsp://192.168.1.106:554/stream1',
-    status: 'online',
-    resolution: '1920x1080',
-    fps: 30,
-    recording: true,
-    last_seen: '2024-03-15T10:30:00',
-  },
-];
+import { useCameras, CAMERA_STATUS, useDocks } from '../hooks';
 
 const STATUS_OPTIONS = [
   { value: 'online', label: 'Online' },
   { value: 'offline', label: 'Offline' },
+  { value: 'maintenance', label: 'Maintenance' },
+  { value: 'error', label: 'Error' },
 ];
 
-const RESOLUTION_OPTIONS = [
-  { value: '1920x1080', label: '1080p (1920x1080)' },
-  { value: '1280x720', label: '720p (1280x720)' },
-  { value: '640x480', label: '480p (640x480)' },
-];
+const STATUS_COLORS = {
+  online: 'bg-emerald-100 text-emerald-700',
+  offline: 'bg-gray-100 text-gray-700',
+  maintenance: 'bg-amber-100 text-amber-700',
+  error: 'bg-red-100 text-red-700',
+};
 
-const FPS_OPTIONS = [
-  { value: '30', label: '30 FPS' },
-  { value: '25', label: '25 FPS' },
-  { value: '15', label: '15 FPS' },
-];
+const ITEMS_PER_PAGE = 10;
 
 const CamerasPage = () => {
-  // State
-  const [cameras, setCameras] = useState(MOCK_CAMERAS);
+  // Supabase hooks
+  const {
+    cameras,
+    loading,
+    error,
+    stats,
+    addCamera,
+    updateCamera,
+    updateStatus,
+    deleteCamera,
+    refetch,
+  } = useCameras();
+
+  const { docks } = useDocks();
+
+  // Local state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
+  const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingCamera, setEditingCamera] = useState(null);
-  const [previewCamera, setPreviewCamera] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     location: '',
-    stream_url: '',
-    resolution: '1920x1080',
-    fps: '30',
-    recording: true,
+    description: '',
+    status: 'offline',
+    dock_id: '',
   });
+
+  // Build dock options
+  const dockOptions = useMemo(() => {
+    return docks.map((dock) => ({
+      value: dock.id,
+      label: `${dock.dock_code} - ${dock.dock_name || 'Unnamed'}`,
+    }));
+  }, [docks]);
 
   // Filter cameras
   const filteredCameras = useMemo(() => {
     return cameras.filter((camera) => {
       const matchesSearch =
-        camera.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        camera.location.toLowerCase().includes(searchQuery.toLowerCase());
+        camera.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        camera.location?.toLowerCase().includes(searchQuery.toLowerCase());
       const matchesStatus = !statusFilter || camera.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [cameras, searchQuery, statusFilter]);
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: cameras.length,
-    online: cameras.filter((c) => c.status === 'online').length,
-    offline: cameras.filter((c) => c.status === 'offline').length,
-    recording: cameras.filter((c) => c.recording && c.status === 'online').length,
-  }), [cameras]);
+  // Pagination
+  const totalPages = Math.ceil(filteredCameras.length / ITEMS_PER_PAGE);
+  const paginatedCameras = filteredCameras.slice(
+    (page - 1) * ITEMS_PER_PAGE,
+    page * ITEMS_PER_PAGE
+  );
 
   // Handlers
   const handleAdd = () => {
@@ -146,10 +101,9 @@ const CamerasPage = () => {
     setFormData({
       name: '',
       location: '',
-      stream_url: '',
-      resolution: '1920x1080',
-      fps: '30',
-      recording: true,
+      description: '',
+      status: 'offline',
+      dock_id: '',
     });
     setModalOpen(true);
   };
@@ -157,89 +111,222 @@ const CamerasPage = () => {
   const handleEdit = (camera) => {
     setEditingCamera(camera);
     setFormData({
-      name: camera.name,
-      location: camera.location,
-      stream_url: camera.stream_url,
-      resolution: camera.resolution,
-      fps: String(camera.fps),
-      recording: camera.recording,
+      name: camera.name || '',
+      location: camera.location || '',
+      description: camera.description || '',
+      status: camera.status || 'offline',
+      dock_id: camera.dock_id || '',
     });
     setModalOpen(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this camera?')) {
-      setCameras(cameras.filter((c) => c.id !== id));
+  const handleDelete = async (camera) => {
+    if (window.confirm(`Delete camera "${camera.name}"?`)) {
+      try {
+        await deleteCamera(camera.id);
+      } catch (err) {
+        console.error('Failed to delete camera:', err);
+        alert('Failed to delete camera: ' + err.message);
+      }
     }
   };
 
-  const handleToggleRecording = (camera) => {
-    setCameras(cameras.map((c) =>
-      c.id === camera.id ? { ...c, recording: !c.recording } : c
-    ));
+  const handleToggleStatus = async (camera) => {
+    const newStatus = camera.status === 'online' ? 'offline' : 'online';
+    try {
+      await updateStatus(camera.id, newStatus);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+    }
   };
 
   const handleFormChange = (e) => {
-    const { name, value, type, checked } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: type === 'checkbox' ? checked : value,
-    }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (editingCamera) {
-      setCameras(cameras.map((c) =>
-        c.id === editingCamera.id
-          ? { ...c, ...formData, fps: Number(formData.fps) }
-          : c
-      ));
-    } else {
-      const newCamera = {
-        id: `cam-${Date.now()}`,
-        ...formData,
-        fps: Number(formData.fps),
-        status: 'offline',
-        last_seen: null,
-      };
-      setCameras([...cameras, newCamera]);
+    setActionLoading(true);
+
+    try {
+      if (editingCamera) {
+        await updateCamera(editingCamera.id, {
+          name: formData.name,
+          location: formData.location || null,
+          description: formData.description || null,
+          status: formData.status,
+          dock_id: formData.dock_id || null,
+        });
+      } else {
+        await addCamera({
+          name: formData.name,
+          location: formData.location || null,
+          description: formData.description || null,
+          status: formData.status,
+          dockId: formData.dock_id || null,
+        });
+      }
+      setModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save camera:', err);
+      alert('Failed to save camera: ' + err.message);
+    } finally {
+      setActionLoading(false);
     }
-    
-    setModalOpen(false);
   };
 
-  const formatLastSeen = (dateString) => {
-    if (!dateString) return 'Never';
-    const date = new Date(dateString);
-    return date.toLocaleString('id-ID', {
-      day: 'numeric',
-      month: 'short',
-      hour: '2-digit',
-      minute: '2-digit',
-    });
-  };
+  // Table columns
+  const columns = [
+    {
+      key: 'name',
+      label: 'Camera',
+      render: (value, row) => (
+        <div className="flex items-center gap-3">
+          <div className={`grid h-9 w-9 place-items-center rounded-lg ${
+            row.status === 'online' ? 'bg-emerald-100' : 'bg-gray-100'
+          }`}>
+            {row.status === 'online' ? (
+              <Video className="h-4 w-4 text-emerald-600" />
+            ) : (
+              <VideoOff className="h-4 w-4 text-gray-500" />
+            )}
+          </div>
+          <div>
+            <div className="font-medium text-gray-900">{value}</div>
+            <div className="text-xs text-gray-500">{row.location || 'No location'}</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'status',
+      label: 'Status',
+      render: (value) => (
+        <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold capitalize ${STATUS_COLORS[value]}`}>
+          {value}
+        </span>
+      ),
+    },
+    {
+      key: 'dock_id',
+      label: 'Dock',
+      render: (value) => {
+        const dock = docks.find((d) => d.id === value);
+        return dock ? (
+          <span className="text-sm">{dock.dock_code}</span>
+        ) : (
+          <span className="text-sm text-gray-400">Not assigned</span>
+        );
+      },
+    },
+    {
+      key: 'description',
+      label: 'Description',
+      render: (value) => (
+        <span className="text-sm text-gray-500 line-clamp-1">{value || '-'}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      label: '',
+      render: (_, row) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleStatus(row);
+            }}
+            className={`rounded-lg p-2 ${
+              row.status === 'online'
+                ? 'text-emerald-500 hover:bg-emerald-50'
+                : 'text-gray-500 hover:bg-gray-100'
+            }`}
+            title={row.status === 'online' ? 'Set Offline' : 'Set Online'}
+          >
+            {row.status === 'online' ? (
+              <Video className="h-4 w-4" />
+            ) : (
+              <VideoOff className="h-4 w-4" />
+            )}
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleEdit(row);
+            }}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+            title="Edit"
+          >
+            <Edit2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleDelete(row);
+            }}
+            className="rounded-lg p-2 text-gray-500 hover:bg-red-50 hover:text-red-600"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
+  if (loading) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+        <span className="ml-2 text-gray-500">Loading cameras...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+        <AlertTriangle className="mx-auto h-8 w-8 text-red-500" />
+        <p className="mt-2 text-sm text-red-700">{error}</p>
+        <button 
+          onClick={refetch}
+          className="mt-4 rounded-xl bg-red-100 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-200"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
       {/* Header */}
       <PageHeader
         title="Cameras"
-        subtitle={`Manage CCTV cameras and streams (${stats.total} cameras)`}
+        subtitle={`Manage CCTV cameras (${stats.total} total)`}
       >
-        <PrimaryButton onClick={handleAdd}>
-          <span className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Camera
-          </span>
-        </PrimaryButton>
+        <div className="flex gap-2">
+          <button
+            onClick={refetch}
+            className="rounded-xl border border-gray-200 bg-white px-3 py-2 text-gray-700 hover:bg-gray-50"
+            title="Refresh"
+          >
+            <RefreshCw className="h-4 w-4" />
+          </button>
+          <PrimaryButton onClick={handleAdd}>
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Camera
+            </span>
+          </PrimaryButton>
+        </div>
       </PageHeader>
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
         <Card>
-          <div className="text-sm text-gray-500">Total Cameras</div>
+          <div className="text-sm text-gray-500">Total</div>
           <div className="mt-1 text-2xl font-semibold">{stats.total}</div>
         </Card>
         <Card>
@@ -248,11 +335,11 @@ const CamerasPage = () => {
         </Card>
         <Card>
           <div className="text-sm text-gray-500">Offline</div>
-          <div className="mt-1 text-2xl font-semibold text-red-600">{stats.offline}</div>
+          <div className="mt-1 text-2xl font-semibold text-gray-600">{stats.offline}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Recording</div>
-          <div className="mt-1 text-2xl font-semibold text-blue-600">{stats.recording}</div>
+          <div className="text-sm text-gray-500">Maintenance</div>
+          <div className="mt-1 text-2xl font-semibold text-amber-600">{stats.maintenance}</div>
         </Card>
       </div>
 
@@ -262,7 +349,7 @@ const CamerasPage = () => {
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search by name or location..."
+            placeholder="Search cameras..."
           />
         </div>
         <SelectFilter
@@ -273,122 +360,32 @@ const CamerasPage = () => {
         />
       </div>
 
-      {/* Camera Grid */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filteredCameras.map((camera) => (
-          <div
-            key={camera.id}
-            className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm"
-          >
-            {/* Preview Area */}
-            <div className="relative aspect-video bg-gray-900">
-              {camera.status === 'online' ? (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <div className="text-center text-gray-400">
-                    <Video className="mx-auto h-12 w-12 opacity-50" />
-                    <div className="mt-2 text-sm">Live Preview</div>
-                  </div>
-                </div>
-              ) : (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-800">
-                  <div className="text-center text-gray-500">
-                    <VideoOff className="mx-auto h-12 w-12" />
-                    <div className="mt-2 text-sm">Offline</div>
-                  </div>
-                </div>
-              )}
-              
-              {/* Status Badge */}
-              <div className="absolute left-3 top-3">
-                <span className={`inline-flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium ${
-                  camera.status === 'online'
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-red-500 text-white'
-                }`}>
-                  <span className={`h-1.5 w-1.5 rounded-full ${
-                    camera.status === 'online' ? 'bg-white animate-pulse' : 'bg-white/50'
-                  }`} />
-                  {camera.status}
-                </span>
-              </div>
-
-              {/* Recording Indicator */}
-              {camera.recording && camera.status === 'online' && (
-                <div className="absolute right-3 top-3">
-                  <span className="inline-flex items-center gap-1 rounded-full bg-red-500 px-2 py-1 text-xs font-medium text-white">
-                    <span className="h-2 w-2 rounded-full bg-white animate-pulse" />
-                    REC
-                  </span>
-                </div>
-              )}
-            </div>
-
-            {/* Info */}
-            <div className="p-4">
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <h3 className="font-semibold text-gray-900">{camera.name}</h3>
-                  <p className="text-sm text-gray-500">{camera.location}</p>
-                </div>
-              </div>
-
-              {/* Details */}
-              <div className="mt-3 flex flex-wrap gap-2 text-xs text-gray-500">
-                <span className="rounded bg-gray-100 px-2 py-1">{camera.resolution}</span>
-                <span className="rounded bg-gray-100 px-2 py-1">{camera.fps} FPS</span>
-              </div>
-
-              <div className="mt-2 text-xs text-gray-400">
-                Last seen: {formatLastSeen(camera.last_seen)}
-              </div>
-
-              {/* Actions */}
-              <div className="mt-4 flex gap-2">
-                <button
-                  onClick={() => setPreviewCamera(camera)}
-                  disabled={camera.status === 'offline'}
-                  className="flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <span className="flex items-center justify-center gap-1">
-                    <Eye className="h-4 w-4" />
-                    View
-                  </span>
-                </button>
-                <button
-                  onClick={() => handleToggleRecording(camera)}
-                  disabled={camera.status === 'offline'}
-                  className={`rounded-xl px-3 py-2 text-sm font-medium ${
-                    camera.recording
-                      ? 'bg-red-100 text-red-700 hover:bg-red-200'
-                      : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  {camera.recording ? 'Stop' : 'Record'}
-                </button>
-                <button
-                  onClick={() => handleEdit(camera)}
-                  className="rounded-xl border border-gray-200 bg-white p-2 text-gray-500 hover:bg-gray-50"
-                >
-                  <Settings className="h-4 w-4" />
-                </button>
-                <button
-                  onClick={() => handleDelete(camera.id)}
-                  className="rounded-xl border border-gray-200 bg-white p-2 text-gray-500 hover:bg-red-50 hover:text-red-500"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {filteredCameras.length === 0 && (
+      {/* Table */}
+      {cameras.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-10 text-center">
-          <div className="text-4xl">📹</div>
-          <div className="mt-3 text-base font-semibold text-gray-900">No cameras found</div>
-          <div className="mt-1 text-sm text-gray-500">Add a camera to get started</div>
+          <Camera className="mx-auto h-10 w-10 text-gray-300" />
+          <div className="mt-3 text-base font-semibold text-gray-900">No cameras configured</div>
+          <div className="mt-1 text-sm text-gray-500">Add your first camera to get started</div>
+          <PrimaryButton onClick={handleAdd} className="mt-4">
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Camera
+            </span>
+          </PrimaryButton>
         </div>
+      ) : (
+        <>
+          <DataTable
+            columns={columns}
+            data={paginatedCameras}
+            emptyMessage="No cameras found"
+          />
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+          />
+        </>
       )}
 
       {/* Add/Edit Modal */}
@@ -412,47 +409,30 @@ const CamerasPage = () => {
             name="location"
             value={formData.location}
             onChange={handleFormChange}
-            placeholder="e.g., Dock Utama 1"
-            required
+            placeholder="e.g., Warehouse A, Loading Bay 1"
           />
           <FormInput
-            label="Stream URL"
-            name="stream_url"
-            value={formData.stream_url}
+            label="Description"
+            name="description"
+            value={formData.description}
             onChange={handleFormChange}
-            placeholder="rtsp://192.168.1.100:554/stream1"
+            placeholder="Optional description"
+          />
+          <FormSelect
+            label="Status"
+            name="status"
+            value={formData.status}
+            onChange={handleFormChange}
+            options={STATUS_OPTIONS}
             required
           />
-          <div className="grid grid-cols-2 gap-4">
-            <FormSelect
-              label="Resolution"
-              name="resolution"
-              value={formData.resolution}
-              onChange={handleFormChange}
-              options={RESOLUTION_OPTIONS}
-              required
-            />
-            <FormSelect
-              label="Frame Rate"
-              name="fps"
-              value={formData.fps}
-              onChange={handleFormChange}
-              options={FPS_OPTIONS}
-              required
-            />
-          </div>
-          <div className="mb-4">
-            <label className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                name="recording"
-                checked={formData.recording}
-                onChange={handleFormChange}
-                className="h-4 w-4 rounded border-gray-300 text-emerald-600 focus:ring-emerald-500"
-              />
-              <span className="text-sm font-medium text-gray-700">Enable recording</span>
-            </label>
-          </div>
+          <FormSelect
+            label="Assign to Dock"
+            name="dock_id"
+            value={formData.dock_id}
+            onChange={handleFormChange}
+            options={[{ value: '', label: 'No dock assigned' }, ...dockOptions]}
+          />
 
           <div className="mt-6 flex justify-end gap-3">
             <button
@@ -462,37 +442,17 @@ const CamerasPage = () => {
             >
               Cancel
             </button>
-            <PrimaryButton type="submit">
-              {editingCamera ? 'Save Changes' : 'Add Camera'}
+            <PrimaryButton type="submit" disabled={actionLoading}>
+              {actionLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : editingCamera ? (
+                'Save Changes'
+              ) : (
+                'Add Camera'
+              )}
             </PrimaryButton>
           </div>
         </form>
-      </Modal>
-
-      {/* Preview Modal */}
-      <Modal
-        open={!!previewCamera}
-        onClose={() => setPreviewCamera(null)}
-        title={previewCamera?.name || 'Camera Preview'}
-        size="lg"
-      >
-        <div className="aspect-video rounded-xl bg-gray-900 flex items-center justify-center">
-          <div className="text-center text-gray-400">
-            <Video className="mx-auto h-16 w-16 opacity-50" />
-            <div className="mt-3 text-lg">Live Stream Preview</div>
-            <div className="mt-1 text-sm opacity-70">
-              {previewCamera?.stream_url}
-            </div>
-          </div>
-        </div>
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={() => setPreviewCamera(null)}
-            className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
-          >
-            Close
-          </button>
-        </div>
       </Modal>
     </div>
   );

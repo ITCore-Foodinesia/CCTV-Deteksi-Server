@@ -1,10 +1,12 @@
 /**
  * HelpersPage - Manage helpers with table and status management
  * Based on new_theme/app.js design patterns
+ * 
+ * Updated to use Supabase with real-time sync via useHelpers hook
  */
 
 import React, { useState, useMemo } from 'react';
-import { HardHat, Plus, Phone, Edit2, Trash2, UserCheck, UserX } from 'lucide-react';
+import { HardHat, Plus, Edit2, Trash2, UserCheck, UserX, Coffee, Clock, RefreshCw, AlertCircle } from 'lucide-react';
 import {
   PageHeader,
   SearchInput,
@@ -18,131 +20,79 @@ import {
   StatusBadge,
   Card,
 } from '../components/shared';
-
-// Mock data based on new_theme
-const MOCK_HELPERS = [
-  {
-    id: 'h-001',
-    name: 'Rizki Pratama',
-    phone: '+62 812-1111-2222',
-    role: 'Senior Helper',
-    status: 'active',
-    assigned_dock: 'D-01',
-    shift: 'morning',
-    created_at: '2024-01-10',
-  },
-  {
-    id: 'h-002',
-    name: 'Yoga Nugroho',
-    phone: '+62 813-3333-4444',
-    role: 'Helper',
-    status: 'active',
-    assigned_dock: 'D-02',
-    shift: 'morning',
-    created_at: '2024-02-15',
-  },
-  {
-    id: 'h-003',
-    name: 'Dimas Saputra',
-    phone: '+62 815-5555-6666',
-    role: 'Helper',
-    status: 'active',
-    assigned_dock: 'D-03',
-    shift: 'afternoon',
-    created_at: '2024-01-25',
-  },
-  {
-    id: 'h-004',
-    name: 'Andi Permana',
-    phone: '+62 816-7777-8888',
-    role: 'Junior Helper',
-    status: 'inactive',
-    assigned_dock: null,
-    shift: 'morning',
-    created_at: '2024-03-01',
-  },
-  {
-    id: 'h-005',
-    name: 'Bayu Wicaksono',
-    phone: '+62 817-9999-0000',
-    role: 'Senior Helper',
-    status: 'active',
-    assigned_dock: 'D-05',
-    shift: 'afternoon',
-    created_at: '2024-02-20',
-  },
-  {
-    id: 'h-006',
-    name: 'Candra Wijaya',
-    phone: '+62 818-1212-3434',
-    role: 'Helper',
-    status: 'suspended',
-    assigned_dock: null,
-    shift: 'morning',
-    created_at: '2024-01-05',
-  },
-];
+import { useHelpers, HELPER_STATUS, useDocks } from '../hooks';
 
 const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'suspended', label: 'Suspended' },
-];
-
-const ROLE_OPTIONS = [
-  { value: 'Junior Helper', label: 'Junior Helper' },
-  { value: 'Helper', label: 'Helper' },
-  { value: 'Senior Helper', label: 'Senior Helper' },
-];
-
-const SHIFT_OPTIONS = [
-  { value: 'morning', label: 'Morning (06:00 - 14:00)' },
-  { value: 'afternoon', label: 'Afternoon (14:00 - 22:00)' },
-  { value: 'night', label: 'Night (22:00 - 06:00)' },
-];
-
-const DOCK_OPTIONS = [
-  { value: '', label: 'Unassigned' },
-  { value: 'D-01', label: 'D-01 - Dock Utama 1' },
-  { value: 'D-02', label: 'D-02 - Dock Utama 2' },
-  { value: 'D-03', label: 'D-03 - Dock Samping' },
-  { value: 'D-04', label: 'D-04 - Dock Belakang 1' },
-  { value: 'D-05', label: 'D-05 - Dock Belakang 2' },
-  { value: 'D-06', label: 'D-06 - Dock Cadangan' },
+  { value: 'available', label: 'Available' },
+  { value: 'assigned', label: 'Assigned' },
+  { value: 'on_break', label: 'On Break' },
+  { value: 'off_duty', label: 'Off Duty' },
 ];
 
 const ITEMS_PER_PAGE = 10;
 
 const HelpersPage = () => {
-  // State
-  const [helpers, setHelpers] = useState(MOCK_HELPERS);
+  // Use Supabase hooks for real data with realtime sync
+  const {
+    helpers,
+    loading,
+    error,
+    stats,
+    createHelper,
+    updateHelper,
+    deleteHelper,
+    setAvailable,
+    setOnBreak,
+    setOffDuty,
+    releaseHelper,
+    refetch,
+  } = useHelpers();
+
+  // Get docks for assignment dropdown
+  const { docks } = useDocks();
+
+  // Local UI state
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
-  const [shiftFilter, setShiftFilter] = useState('');
   const [page, setPage] = useState(1);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingHelper, setEditingHelper] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     name: '',
     phone: '',
-    role: 'Helper',
-    status: 'active',
-    assigned_dock: '',
-    shift: 'morning',
+    helper_code: '',
+    status: 'available',
   });
+
+  // Build dock options
+  const dockOptions = useMemo(() => {
+    return [
+      { value: '', label: 'Unassigned' },
+      ...docks.map((dock) => ({
+        value: dock.id,
+        label: `${dock.dock_code || dock.code || dock.id} - ${dock.dock_name || dock.name || 'Unnamed'}`,
+      })),
+    ];
+  }, [docks]);
 
   // Filter and search
   const filteredHelpers = useMemo(() => {
     return helpers.filter((helper) => {
+      const name = helper.name || '';
+      const phone = helper.phone || '';
+      const helperCode = helper.helper_code || '';
+      
       const matchesSearch =
-        helper.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        helper.phone.includes(searchQuery) ||
-        (helper.assigned_dock && helper.assigned_dock.toLowerCase().includes(searchQuery.toLowerCase()));
+        name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        phone.includes(searchQuery) ||
+        helperCode.toLowerCase().includes(searchQuery.toLowerCase());
+      
       const matchesStatus = !statusFilter || helper.status === statusFilter;
-      const matchesShift = !shiftFilter || helper.shift === shiftFilter;
-      return matchesSearch && matchesStatus && matchesShift;
+      
+      return matchesSearch && matchesStatus;
     });
-  }, [helpers, searchQuery, statusFilter, shiftFilter]);
+  }, [helpers, searchQuery, statusFilter]);
 
   // Pagination
   const totalPages = Math.ceil(filteredHelpers.length / ITEMS_PER_PAGE);
@@ -150,6 +100,27 @@ const HelpersPage = () => {
     (page - 1) * ITEMS_PER_PAGE,
     page * ITEMS_PER_PAGE
   );
+
+  // Reset page when filters change
+  useMemo(() => {
+    setPage(1);
+  }, [searchQuery, statusFilter]);
+
+  // Get status badge variant
+  const getStatusVariant = (status) => {
+    switch (status) {
+      case HELPER_STATUS.AVAILABLE:
+        return 'success';
+      case HELPER_STATUS.ASSIGNED:
+        return 'warning';
+      case HELPER_STATUS.ON_BREAK:
+        return 'info';
+      case HELPER_STATUS.OFF_DUTY:
+        return 'inactive';
+      default:
+        return 'default';
+    }
+  };
 
   // Table columns
   const columns = [
@@ -162,65 +133,99 @@ const HelpersPage = () => {
             <HardHat className="h-4 w-4 text-amber-600" />
           </div>
           <div>
-            <div className="font-medium text-gray-900">{value}</div>
-            <div className="text-xs text-gray-500">{row.phone}</div>
+            <div className="font-medium text-gray-900">{value || 'Unnamed'}</div>
+            <div className="text-xs text-gray-500">
+              {row.helper_code && <span className="font-mono">{row.helper_code} • </span>}
+              {row.phone || '-'}
+            </div>
           </div>
         </div>
       ),
     },
     {
-      key: 'role',
-      label: 'Role',
-      render: (value) => (
-        <span className="text-sm">{value}</span>
-      ),
-    },
-    {
-      key: 'assigned_dock',
-      label: 'Assigned Dock',
-      render: (value) => value ? (
-        <span className="rounded-lg bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
-          {value}
-        </span>
-      ) : (
-        <span className="text-gray-400">Unassigned</span>
-      ),
-    },
-    {
-      key: 'shift',
-      label: 'Shift',
-      render: (value) => (
-        <span className="capitalize">{value}</span>
-      ),
-    },
-    {
       key: 'status',
       label: 'Status',
-      render: (value) => <StatusBadge status={value} />,
+      render: (value) => (
+        <StatusBadge status={getStatusVariant(value)}>
+          <span className="capitalize">{value?.replace('_', ' ') || 'Unknown'}</span>
+        </StatusBadge>
+      ),
+    },
+    {
+      key: 'current_dock_id',
+      label: 'Current Dock',
+      render: (value) => {
+        if (!value) {
+          return <span className="text-gray-400">-</span>;
+        }
+        // Find dock name
+        const dock = docks.find((d) => d.id === value);
+        return (
+          <span className="rounded-lg bg-blue-50 px-2 py-1 text-xs font-medium text-blue-700">
+            {dock?.dock_code || dock?.code || value}
+          </span>
+        );
+      },
+    },
+    {
+      key: 'created_at',
+      label: 'Joined',
+      render: (value) => value ? new Date(value).toLocaleDateString('id-ID') : '-',
     },
     {
       key: 'actions',
       label: '',
       render: (_, row) => (
         <div className="flex items-center gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              handleToggleStatus(row);
-            }}
-            className={`rounded-lg p-2 ${
-              row.status === 'active' 
-                ? 'text-gray-500 hover:bg-red-50 hover:text-red-600' 
-                : 'text-gray-500 hover:bg-emerald-50 hover:text-emerald-600'
-            }`}
-            title={row.status === 'active' ? 'Deactivate' : 'Activate'}
-          >
-            {row.status === 'active' ? (
-              <UserX className="h-4 w-4" />
-            ) : (
+          {/* Status toggle buttons */}
+          {row.status === HELPER_STATUS.ASSIGNED && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleRelease(row.id);
+              }}
+              className="rounded-lg p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600"
+              title="Release (Make Available)"
+            >
               <UserCheck className="h-4 w-4" />
-            )}
-          </button>
+            </button>
+          )}
+          {row.status === HELPER_STATUS.AVAILABLE && (
+            <>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSetOnBreak(row.id);
+                }}
+                className="rounded-lg p-2 text-gray-500 hover:bg-amber-50 hover:text-amber-600"
+                title="Set On Break"
+              >
+                <Coffee className="h-4 w-4" />
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleSetOffDuty(row.id);
+                }}
+                className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700"
+                title="Set Off Duty"
+              >
+                <Clock className="h-4 w-4" />
+              </button>
+            </>
+          )}
+          {(row.status === HELPER_STATUS.ON_BREAK || row.status === HELPER_STATUS.OFF_DUTY) && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                handleSetAvailable(row.id);
+              }}
+              className="rounded-lg p-2 text-gray-500 hover:bg-emerald-50 hover:text-emerald-600"
+              title="Set Available"
+            >
+              <UserCheck className="h-4 w-4" />
+            </button>
+          )}
           <button
             onClick={(e) => {
               e.stopPropagation();
@@ -252,10 +257,8 @@ const HelpersPage = () => {
     setFormData({
       name: '',
       phone: '',
-      role: 'Helper',
-      status: 'active',
-      assigned_dock: '',
-      shift: 'morning',
+      helper_code: '',
+      status: 'available',
     });
     setModalOpen(true);
   };
@@ -263,27 +266,59 @@ const HelpersPage = () => {
   const handleEdit = (helper) => {
     setEditingHelper(helper);
     setFormData({
-      name: helper.name,
-      phone: helper.phone,
-      role: helper.role,
-      status: helper.status,
-      assigned_dock: helper.assigned_dock || '',
-      shift: helper.shift,
+      name: helper.name || '',
+      phone: helper.phone || '',
+      helper_code: helper.helper_code || '',
+      status: helper.status || 'available',
     });
     setModalOpen(true);
   };
 
-  const handleDelete = (id) => {
+  const handleDelete = async (id) => {
     if (window.confirm('Are you sure you want to delete this helper?')) {
-      setHelpers(helpers.filter((h) => h.id !== id));
+      try {
+        await deleteHelper(id);
+      } catch (err) {
+        console.error('Failed to delete helper:', err);
+        alert('Failed to delete helper. Please try again.');
+      }
     }
   };
 
-  const handleToggleStatus = (helper) => {
-    const newStatus = helper.status === 'active' ? 'inactive' : 'active';
-    setHelpers(helpers.map((h) =>
-      h.id === helper.id ? { ...h, status: newStatus, assigned_dock: newStatus === 'inactive' ? null : h.assigned_dock } : h
-    ));
+  const handleSetAvailable = async (id) => {
+    try {
+      await setAvailable(id);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update helper status.');
+    }
+  };
+
+  const handleSetOnBreak = async (id) => {
+    try {
+      await setOnBreak(id);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update helper status.');
+    }
+  };
+
+  const handleSetOffDuty = async (id) => {
+    try {
+      await setOffDuty(id);
+    } catch (err) {
+      console.error('Failed to update status:', err);
+      alert('Failed to update helper status.');
+    }
+  };
+
+  const handleRelease = async (id) => {
+    try {
+      await releaseHelper(id);
+    } catch (err) {
+      console.error('Failed to release helper:', err);
+      alert('Failed to release helper.');
+    }
   };
 
   const handleFormChange = (e) => {
@@ -291,36 +326,57 @@ const HelpersPage = () => {
     setFormData((prev) => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    
-    if (editingHelper) {
-      // Update existing
-      setHelpers(helpers.map((h) =>
-        h.id === editingHelper.id ? { ...h, ...formData, assigned_dock: formData.assigned_dock || null } : h
-      ));
-    } else {
-      // Add new
-      const newHelper = {
-        id: `h-${Date.now()}`,
-        ...formData,
-        assigned_dock: formData.assigned_dock || null,
-        created_at: new Date().toISOString().split('T')[0],
-      };
-      setHelpers([newHelper, ...helpers]);
+    setSubmitting(true);
+
+    try {
+      if (editingHelper) {
+        // Update existing
+        await updateHelper(editingHelper.id, formData);
+      } else {
+        // Create new
+        await createHelper(formData);
+      }
+      setModalOpen(false);
+    } catch (err) {
+      console.error('Failed to save helper:', err);
+      alert(err.message || 'Failed to save helper. Please try again.');
+    } finally {
+      setSubmitting(false);
     }
-    
-    setModalOpen(false);
   };
 
-  // Stats
-  const stats = useMemo(() => ({
-    total: helpers.length,
-    active: helpers.filter((h) => h.status === 'active').length,
-    assigned: helpers.filter((h) => h.status === 'active' && h.assigned_dock).length,
-    inactive: helpers.filter((h) => h.status === 'inactive').length,
-    suspended: helpers.filter((h) => h.status === 'suspended').length,
-  }), [helpers]);
+  // Loading state
+  if (loading && helpers.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <RefreshCw className="h-8 w-8 animate-spin text-blue-600" />
+          <p className="text-sm text-gray-500">Loading helpers...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && helpers.length === 0) {
+    return (
+      <div className="flex h-64 items-center justify-center">
+        <div className="flex flex-col items-center gap-3 text-center">
+          <AlertCircle className="h-8 w-8 text-red-500" />
+          <p className="text-sm text-gray-700">Failed to load helpers</p>
+          <p className="text-xs text-gray-500">{error.message}</p>
+          <button
+            onClick={refetch}
+            className="mt-2 rounded-lg bg-blue-600 px-4 py-2 text-sm text-white hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -329,12 +385,21 @@ const HelpersPage = () => {
         title="Helpers"
         subtitle={`Manage dock helpers and assistants (${stats.total} total)`}
       >
-        <PrimaryButton onClick={handleAdd}>
-          <span className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Helper
-          </span>
-        </PrimaryButton>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refetch}
+            className="rounded-lg p-2 text-gray-500 hover:bg-gray-100"
+            title="Refresh"
+          >
+            <RefreshCw className={`h-5 w-5 ${loading ? 'animate-spin' : ''}`} />
+          </button>
+          <PrimaryButton onClick={handleAdd}>
+            <span className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Helper
+            </span>
+          </PrimaryButton>
+        </div>
       </PageHeader>
 
       {/* Stats Cards */}
@@ -344,20 +409,20 @@ const HelpersPage = () => {
           <div className="mt-1 text-2xl font-semibold">{stats.total}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Active</div>
-          <div className="mt-1 text-2xl font-semibold text-emerald-600">{stats.active}</div>
+          <div className="text-sm text-gray-500">Available</div>
+          <div className="mt-1 text-2xl font-semibold text-emerald-600">{stats.available}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">On Duty</div>
-          <div className="mt-1 text-2xl font-semibold text-blue-600">{stats.assigned}</div>
+          <div className="text-sm text-gray-500">Assigned</div>
+          <div className="mt-1 text-2xl font-semibold text-orange-600">{stats.assigned}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Inactive</div>
-          <div className="mt-1 text-2xl font-semibold text-gray-600">{stats.inactive}</div>
+          <div className="text-sm text-gray-500">On Break</div>
+          <div className="mt-1 text-2xl font-semibold text-blue-600">{stats.onBreak}</div>
         </Card>
         <Card>
-          <div className="text-sm text-gray-500">Suspended</div>
-          <div className="mt-1 text-2xl font-semibold text-red-600">{stats.suspended}</div>
+          <div className="text-sm text-gray-500">Off Duty</div>
+          <div className="mt-1 text-2xl font-semibold text-gray-600">{stats.offDuty}</div>
         </Card>
       </div>
 
@@ -367,7 +432,7 @@ const HelpersPage = () => {
           <SearchInput
             value={searchQuery}
             onChange={setSearchQuery}
-            placeholder="Search by name, phone, or dock..."
+            placeholder="Search by name, phone, or code..."
           />
         </div>
         <SelectFilter
@@ -375,12 +440,6 @@ const HelpersPage = () => {
           onChange={setStatusFilter}
           options={STATUS_OPTIONS}
           placeholder="All Status"
-        />
-        <SelectFilter
-          value={shiftFilter}
-          onChange={setShiftFilter}
-          options={SHIFT_OPTIONS}
-          placeholder="All Shifts"
         />
       </div>
 
@@ -420,32 +479,13 @@ const HelpersPage = () => {
             value={formData.phone}
             onChange={handleFormChange}
             placeholder="+62 8xx-xxxx-xxxx"
-            required
           />
-          <div className="grid grid-cols-2 gap-4">
-            <FormSelect
-              label="Role"
-              name="role"
-              value={formData.role}
-              onChange={handleFormChange}
-              options={ROLE_OPTIONS}
-              required
-            />
-            <FormSelect
-              label="Shift"
-              name="shift"
-              value={formData.shift}
-              onChange={handleFormChange}
-              options={SHIFT_OPTIONS}
-              required
-            />
-          </div>
-          <FormSelect
-            label="Assigned Dock"
-            name="assigned_dock"
-            value={formData.assigned_dock}
+          <FormInput
+            label="Helper Code"
+            name="helper_code"
+            value={formData.helper_code}
             onChange={handleFormChange}
-            options={DOCK_OPTIONS}
+            placeholder="H001"
           />
           <FormSelect
             label="Status"
@@ -461,11 +501,21 @@ const HelpersPage = () => {
               type="button"
               onClick={() => setModalOpen(false)}
               className="rounded-xl border border-gray-200 bg-white px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              disabled={submitting}
             >
               Cancel
             </button>
-            <PrimaryButton type="submit">
-              {editingHelper ? 'Save Changes' : 'Add Helper'}
+            <PrimaryButton type="submit" disabled={submitting}>
+              {submitting ? (
+                <span className="flex items-center gap-2">
+                  <RefreshCw className="h-4 w-4 animate-spin" />
+                  Saving...
+                </span>
+              ) : editingHelper ? (
+                'Save Changes'
+              ) : (
+                'Add Helper'
+              )}
             </PrimaryButton>
           </div>
         </form>
