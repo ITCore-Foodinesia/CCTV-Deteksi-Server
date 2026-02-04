@@ -6,6 +6,9 @@
 import React, { useState } from 'react';
 import { X, Search, ChevronLeft, ChevronRight } from 'lucide-react';
 
+// Re-export ErrorBoundary from separate file
+export { default as ErrorBoundary } from './ErrorBoundary';
+
 // Status badge colors matching new_theme
 export const STATUS_BADGE_CLASSES = {
   active: 'bg-emerald-100 text-emerald-800 ring-1 ring-emerald-200',
