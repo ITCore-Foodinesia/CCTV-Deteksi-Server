@@ -50,7 +50,7 @@ const MobileDrawer = ({ open, onClose }) => {
       <div className="fixed inset-y-0 left-0 w-72 bg-white shadow-2xl transform transition-transform duration-300 ease-out">
         {/* Header */}
         <div className="flex items-center justify-between px-4 py-4 border-b border-gray-100">
-          <Link to="/app/dashboard" className="flex items-center gap-3" onClick={onClose}>
+          <Link to="/dashboard" className="flex items-center gap-3" onClick={onClose}>
             <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#84CC16] text-white shadow-sm text-lg">
               🏭
             </div>

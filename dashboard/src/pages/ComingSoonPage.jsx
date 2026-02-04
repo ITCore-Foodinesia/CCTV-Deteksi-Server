@@ -35,7 +35,7 @@ const ComingSoonPage = ({ title = 'This Feature' }) => {
 
       {/* Back Button */}
       <button
-        onClick={() => navigate('/app/dashboard')}
+        onClick={() => navigate('/dashboard')}
         className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium transition-colors"
       >
         <ArrowLeft className="h-4 w-4" />

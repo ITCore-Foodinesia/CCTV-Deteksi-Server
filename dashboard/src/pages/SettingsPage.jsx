@@ -3,8 +3,9 @@
  * Based on new_theme/app.js design patterns
  */
 
-import React, { useState } from 'react';
-import { Settings, Building, Clock, Bell, Shield, Database, Save } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Settings, Building, Clock, Bell, Shield, Database, Save, Zap } from 'lucide-react';
 import {
   PageHeader,
   PrimaryButton,
@@ -12,6 +13,7 @@ import {
   FormInput,
   FormSelect,
 } from '../components/shared';
+import QuickActionsSettings from '../components/QuickActionsSettings';
 
 // Mock settings data
 const INITIAL_SETTINGS = {
@@ -52,14 +54,24 @@ const BACKUP_FREQUENCY_OPTIONS = [
 ];
 
 const SettingsPage = () => {
+  const [searchParams] = useSearchParams();
   const [settings, setSettings] = useState(INITIAL_SETTINGS);
   const [activeTab, setActiveTab] = useState('company');
   const [hasChanges, setHasChanges] = useState(false);
+
+  // Handle URL query param for tab (e.g., /settings?tab=quick-actions)
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam) {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   const tabs = [
     { id: 'company', label: 'Company', icon: Building },
     { id: 'operational', label: 'Operational', icon: Clock },
     { id: 'notifications', label: 'Notifications', icon: Bell },
+    { id: 'quick-actions', label: 'Quick Actions', icon: Zap },
     { id: 'security', label: 'Security', icon: Shield },
     { id: 'data', label: 'Data & Backup', icon: Database },
   ];
@@ -298,6 +310,11 @@ const SettingsPage = () => {
               </div>
             </div>
           </div>
+        )}
+
+        {/* Quick Actions Settings */}
+        {activeTab === 'quick-actions' && (
+          <QuickActionsSettings />
         )}
 
         {/* Security Settings */}

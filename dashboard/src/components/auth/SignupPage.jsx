@@ -69,7 +69,7 @@ const SignupPage = () => {
         setShowConfirmation(true);
       } else {
         // Navigate to dashboard on success (if no email confirmation required)
-        navigate('/app/dashboard');
+        navigate('/dashboard');
       }
     } else {
       setLocalError(result.error || 'Signup failed. Please try again.');

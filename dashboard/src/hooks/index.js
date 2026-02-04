@@ -29,3 +29,6 @@ export { useUserTenants, USER_ROLE, ROLE_DESCRIPTIONS } from './useUserTenants';
 
 // WebSocket hook (existing)
 export { useWebSocket } from './useWebSocket';
+
+// Quick Actions customization
+export { default as useQuickActions, AVAILABLE_QUICK_ACTIONS } from './useQuickActions';

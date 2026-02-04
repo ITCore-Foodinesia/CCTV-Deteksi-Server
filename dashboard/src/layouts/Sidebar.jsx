@@ -159,8 +159,8 @@ const Sidebar = () => {
     >
       {/* Logo/Brand */}
       <div className="px-4 py-4 border-b border-gray-100">
-        <Link 
-          to="/app/dashboard" 
+        <Link
+          to="/dashboard"
           className="flex items-center gap-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 rounded-xl"
           aria-label={`${STRINGS.brandName} - Go to dashboard`}
         >
