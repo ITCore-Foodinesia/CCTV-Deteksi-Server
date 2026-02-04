@@ -3,8 +3,10 @@
  * Sticky header with mobile menu, connection status, notifications, and user profile
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { Menu, Bell, Wifi, WifiOff } from 'lucide-react';
+import NotificationPanel from './NotificationPanel';
+import { useNotifications } from '../../hooks/useNotifications';
 
 /**
  * Connection Indicator - shows WebSocket connection status
@@ -32,6 +34,19 @@ const ConnectionIndicator = ({ connected }) => (
 );
 
 const TopHeader = ({ connected, onMenuClick, pageTitle = 'Dashboard' }) => {
+  const [isNotificationOpen, setIsNotificationOpen] = useState(false);
+  const { stats } = useNotifications();
+  
+  const unreadCount = stats?.unread || 0;
+
+  const toggleNotificationPanel = () => {
+    setIsNotificationOpen((prev) => !prev);
+  };
+
+  const closeNotificationPanel = () => {
+    setIsNotificationOpen(false);
+  };
+
   return (
     <header className="sticky top-0 z-20 border-b border-gray-200 bg-white/95 backdrop-blur">
       <div className="flex items-center gap-3 px-4 py-3">
@@ -56,15 +71,35 @@ const TopHeader = ({ connected, onMenuClick, pageTitle = 'Dashboard' }) => {
         <ConnectionIndicator connected={connected} />
 
         {/* Notifications */}
-        <button 
-          className="relative rounded-xl p-2 hover:bg-gray-100 transition-colors"
-          aria-label="Notifications"
-        >
-          <Bell className="h-5 w-5 text-gray-600" />
-          <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
-            3
-          </span>
-        </button>
+        <div className="relative">
+          <button 
+            onClick={toggleNotificationPanel}
+            className={`
+              relative rounded-xl p-2 transition-colors
+              ${isNotificationOpen 
+                ? 'bg-lime-100 text-lime-700' 
+                : 'hover:bg-gray-100 text-gray-600'
+              }
+            `}
+            aria-label="Notifications"
+            aria-expanded={isNotificationOpen}
+            aria-haspopup="true"
+            data-notification-trigger
+          >
+            <Bell className="h-5 w-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </button>
+
+          {/* Notification Panel Dropdown */}
+          <NotificationPanel 
+            isOpen={isNotificationOpen} 
+            onClose={closeNotificationPanel} 
+          />
+        </div>
 
         {/* Profile */}
         <button className="rounded-xl bg-[#1A2E35] px-3 py-2 text-sm font-semibold text-white hover:bg-[#243a42] transition-colors">
