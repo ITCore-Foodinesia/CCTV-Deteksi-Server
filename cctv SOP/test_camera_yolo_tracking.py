@@ -10,7 +10,7 @@ from config.settings import MIN_BOX_AREA
 # =====================
 CAMERA_INDEX = 0          # DroidCam kamu
 FONT = cv2.FONT_HERSHEY_SIMPLEX
-STABLE_FRAMES = 5         # ID harus muncul minimal 5 frame berturut
+STABLE_FRAMES = 1         # ID harus muncul minimal 5 frame berturut
 
 def main():
     print("🚀 CCTV SOP - YOLO TRACKING MODE")
@@ -87,7 +87,8 @@ def main():
 
         cv2.imshow("CCTV SOP - TRACKING", frame)
 
-        if cv2.waitKey(1) & 0xFF == 27:  # ESC
+        key = cv2.waitKey(1) & 0xFF
+        if key == 27 or key == ord('q') or key == ord('Q'):  # ESC or Q
             break
 
     cam.release()

@@ -1,0 +1,24 @@
+# ===========================================
+# CCTV Detection System - Root .gitignore
+# ===========================================
+
+# -------------------------------------------
+# Auto Labeling Application (large folder)
+# -------------------------------------------
+auto_labeling/
+auto_labelling/
+autolabel/
+yolo-autolabel-sys/
+yolo-labeling-studio/
+"cctv SOP"/
+
+# -------------------------------------------
+# Common ignores
+# -------------------------------------------
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.log
+node_modules/

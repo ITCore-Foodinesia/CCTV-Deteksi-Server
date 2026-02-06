@@ -9,6 +9,15 @@ from oauth2client.service_account import ServiceAccountCredentials
 
 from .shared import DetectionPayload, ControlEvent, PROC_UPLOADER
 
+# Debug Logging
+def log_debug(msg):
+    try:
+        with open("uploader_debug.log", "a") as f:
+            f.write(f"{datetime.datetime.now()} [{PROC_UPLOADER}] {msg}\n")
+    except:
+        pass
+
+
 # === GOOGLE SHEETS HELPERS ===
 def get_worksheet_safe(gc, sheet_id, worksheet_name):
     try:
@@ -89,12 +98,15 @@ class UploaderThread(threading.Thread):
         # Retry connect
         while self.running:
             try:
+                log_debug(f"Attempting connect. Creds: {creds_file}, SheetID: {self.config.sheet_id}")
                 creds = ServiceAccountCredentials.from_json_keyfile_name(creds_file, scope)
                 gc = gspread.authorize(creds)
                 ws = get_worksheet_safe(gc, self.config.sheet_id, self.config.worksheet if self.config.worksheet else "FIX")
+                log_debug(f"Connected to Google Sheets: {self.config.worksheet}")
                 print(f"[{PROC_UPLOADER}] Connected to Google Sheets: {self.config.worksheet}")
                 break
             except Exception as e:
+                log_debug(f"Conn failed: {e}")
                 print(f"[{PROC_UPLOADER}] Conn failed, retrying in 5s: {e}")
                 time.sleep(5)
         
@@ -112,6 +124,7 @@ class UploaderThread(threading.Thread):
                     continue
                 
                 if isinstance(item, DetectionPayload):
+                    log_debug(f"Processing Payload: {item.kloter} for {item.plate}")
                     self._process_payload(ws, item)
                     
                 self.input_queue.task_done()
@@ -140,23 +153,39 @@ class UploaderThread(threading.Thread):
                 if row_idx is None:
                     # Create New
                     kloter = calculate_kloter(ws, item.plate, date_str)
+                    log_debug(f"Calculated Kloter for {item.plate}: {kloter}")
+                    
                     # Columns: Plat, Tanggal, Jam Datang, Jam Selesai, Loading, Rehab, Kloter
                     row_data = [item.plate, date_str, timestamp_str, "", 0, 0, kloter]
-                    ws.append_row(row_data)
+                    
+                    # FIX: Explicitly find next empty row in Column A to avoid appending to K-Q (Summary Table)
+                    try:
+                        col_a = ws.col_values(1)
+                        next_row = len(col_a) + 1
+                        # Ensure we don't overwrite headers if list is empty (unlikely with col_values logic)
+                        if next_row < 2: next_row = 2
+                        
+                        # Use range update specifically for A:G
+                        # range_name example: 'A5:G5'
+                        range_name = f"A{next_row}:G{next_row}"
+                        ws.update(range_name, [row_data])
+                        log_debug(f"Row explicitly written to {range_name} for {item.plate}")
+                    except Exception as e:
+                        log_debug(f"Explicit update failed, falling back to append: {e}")
+                        ws.append_row(row_data) # Fallback
+                        
                     print(f"[{PROC_UPLOADER}] New Row Created for {item.plate}")
                     
                     # Store current row
-                    # Re-find to get ID or assume it's last? Safe to re-find or assume len+1?
-                    # gspread append adds to bottom.
-                    # Let's perform a lightweight find or just fetch all values.
-                    # For safety, let's re-find.
                     self.current_row_idx = find_row_for_plate(ws, item.plate, date_str)
                 else:
                     self.current_row_idx = row_idx
+                    log_debug(f"Using existing row {row_idx} for {item.plate}")
                     print(f"[{PROC_UPLOADER}] Using existing row {row_idx} for {item.plate}")
                 
                 self.current_plate_in_row = item.plate
             except Exception as e:
+                log_debug(f"Error handling QR_START: {e}")
                 print(f"[{PROC_UPLOADER}] Error handling QR_START: {e}")
 
         elif item.kloter == "SESSION_END":
@@ -194,7 +223,15 @@ class UploaderThread(threading.Thread):
                              # Create NEW row for the detection
                              kloter = calculate_kloter(ws, item.plate, date_str)
                              row_data = [item.plate, date_str, timestamp_str, "", item.loading, item.rehab, kloter]
-                             ws.append_row(row_data)
+                             
+                             # FIX: Explicitly find next empty row to avoid sidebar collision
+                             col_a = ws.col_values(1)
+                             next_row = len(col_a) + 1
+                             if next_row < 2: next_row = 2
+                             
+                             ws.update(f"A{next_row}:G{next_row}", [row_data])
+                             log_debug(f"Auto-Row explicitly written to A{next_row} for {item.plate}")
+                             
                              self.current_row_idx = find_row_for_plate(ws, item.plate, date_str)
                              self.current_plate_in_row = item.plate
                              print(f"[{PROC_UPLOADER}] Created Auto-Row for {item.plate} (Kloter {kloter})")

@@ -50,7 +50,7 @@ QR_STANDBY_CMD = [
     "--model", str((APP_DIR / "models" / "bestbaru.engine").resolve()),
     "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
     "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
-    "--worksheet", "AUTO_ID"
+            "--worksheet", "FIX",
 ]
 MAIN_CMD = [
     "python", MAIN_PATH,
@@ -58,7 +58,7 @@ MAIN_CMD = [
     "--model", str((APP_DIR / "models" / "bestbaru.engine").resolve()),
     "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
     "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
-    "--worksheet", "AUTO_ID",
+            "--worksheet", "FIX",
     "--plate", "UNKNOWN",  # Untuk mode plat unknown
     "--notify_token", TELEGRAM_BOT_TOKEN,
     "--notify_chat_id", TELEGRAM_CHAT_ID
@@ -66,7 +66,7 @@ MAIN_CMD = [
 
 # Google Sheets configuration
 SHEET_ID = "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM"
-WORKSHEET_NAME = "AUTO_ID"
+WORKSHEET_NAME = "FIX"
 CREDS_FILE = str((APP_DIR / "config" / "credentials.json").resolve())
 
 def remove_emoji(text):
@@ -456,7 +456,7 @@ def start_main_v2():
             "--model", str((APP_DIR / "models" / "bestbaru4050.pt").resolve()),
             "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
             "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
-            "--worksheet", "AUTO_ID",
+                    "--worksheet", "FIX",
             "--plate", last_state.get('plate', 'UNKNOWN'),
             "--notify_token", TELEGRAM_BOT_TOKEN,
             "--notify_chat_id", TELEGRAM_CHAT_ID,
@@ -514,7 +514,7 @@ def start_main_v3():
             "--model", str((APP_DIR / "models" / "bestbaru.engine").resolve()),
             "--creds", str((APP_DIR / "config" / "credentials.json").resolve()),
             "--sheet_id", "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM",
-            "--worksheet", "AUTO_ID",
+                    "--worksheet", "FIX",
             "--plate", last_state.get('plate', 'UNKNOWN'),
             "--notify_token", TELEGRAM_BOT_TOKEN,
             "--notify_chat_id", TELEGRAM_CHAT_ID,

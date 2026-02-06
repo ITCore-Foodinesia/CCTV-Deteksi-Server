@@ -40,24 +40,90 @@ def save_config(cfg: dict) -> None:
         pass
 
 
-def is_process_running(script_name: str) -> bool:
-    if psutil is None:
+
+# === BACKGROUND PROCESS MONITOR ===
+class ProcessMonitor(threading.Thread):
+    def __init__(self):
+        super().__init__(daemon=True)
+        self.running = True
+        self.lock = threading.Lock()
+        self.status = {
+            "telegram_monitor_bot.py": False,
+            "qr_standby.py": False,
+            "icetube_main.py": False,  # Legacy Main
+            "main_v2.py": False,      # Legacy V2
+            "integrated_main.py": False, # Unified Server legacy name
+            "main.py": False,          # Fallback name
+            "src.detection.gui_version_partial.main": False, # Main V3
+            "gui_version_partial.main": False, # Main V3 alt
+            "src.unified_server.main": False,  # Unified Server
+            "unified_server.main": False       # Unified Server alt
+        }
+        self._cache_timestamp = 0
+        
+    def run(self):
+        while self.running:
+            try:
+                if psutil:
+                    # Get all running processes once to minimize overhead
+                    current_procs = []
+                    for proc in psutil.process_iter(attrs=["name", "cmdline"]):
+                        try:
+                            cmd = proc.info.get("cmdline") or []
+                            if cmd:
+                                # Join cmdline for easier searching
+                                full_cmd = " ".join([str(x).lower() for x in cmd])
+                                current_procs.append(full_cmd)
+                        except (psutil.NoSuchProcess, psutil.AccessDenied):
+                            continue
+                            
+                    # Update status for each monitored script
+                    with self.lock:
+                        for script_key in self.status.keys():
+                            # Check if monitors script is in any running process cmdline
+                            # We search for the script name in the full command line
+                            is_running = any(script_key.lower() in cmd for cmd in current_procs)
+                            self.status[script_key] = is_running
+                            
+                    self._cache_timestamp = time.time()
+                
+                time.sleep(2.0) # Check every 2 seconds
+            except Exception as e:
+                print(f"ProcessMonitor Error: {e}")
+                time.sleep(5.0)
+
+    def get_status(self, script_name):
+        with self.lock:
+            return self.status.get(script_name, False)
+
+    def is_running(self, script_name):
+        # Allow checking for scripts not explicitly in init map (fallback)
+        with self.lock:
+            if script_name in self.status:
+                return self.status[script_name]
         return False
-    for proc in psutil.process_iter(attrs=["pid", "name", "cmdline"]):
-        try:
-            cmd = proc.info.get("cmdline") or []
-            if not cmd:
-                continue
-            # Cari eksekusi python yang memanggil script_name
-            for arg in cmd:
-                if isinstance(arg, str) and script_name.lower() in arg.lower():
-                    return True
-        except Exception:
-            continue
+
+# Global Monitor Instance
+monitor = None 
+
+def init_monitor():
+    global monitor
+    if monitor is None:
+        monitor = ProcessMonitor()
+        monitor.start()
+
+def is_process_running(script_name: str) -> bool:
+    """Non-blocking check using background monitor"""
+    if monitor:
+        return monitor.is_running(script_name)
     return False
 
-
 def kill_process(script_name: str) -> int:
+    """
+    Terminates process. 
+    WARNING: This can still be blocking if wait() is called.
+    Ideally spawn a thread if UI responsiveness is critical during kill.
+    """
     if psutil is None:
         return 0
     killed = 0
@@ -68,8 +134,10 @@ def kill_process(script_name: str) -> int:
                 continue
             if any(isinstance(arg, str) and script_name.lower() in arg.lower() for arg in cmd):
                 proc.terminate()
+                # Run wait in a separate thread to avoid UI freeze?
+                # For now using short timeout
                 try:
-                    proc.wait(timeout=5)
+                    proc.wait(timeout=1.0) 
                 except Exception:
                     proc.kill()
                 killed += 1
@@ -114,6 +182,10 @@ class ControlPanel(tk.Tk):
 
         # Fallback to V2 setting (default OFF) - renamed to auto_restart_v3
         self.auto_restart_enabled = self.config_data.get("auto_restart_v3", False)
+
+
+        # Initialize Background Monitor
+        init_monitor()
 
         # Login terlebih dahulu
         if not self._login_flow():
@@ -162,9 +234,9 @@ class ControlPanel(tk.Tk):
         
         self.entry_source = self._create_hidden_entry(hidden_frame, default="", placeholder="rtsp://username:password@ip:port/path")
         self.entry_model = self._create_hidden_entry(hidden_frame, default=str((APP_DIR / "models" / "bestbaru.engine").resolve()))
-        self.entry_creds = self._create_hidden_entry(hidden_frame, default=str((APP_DIR / "credentials.json").resolve()))
-        self.entry_sheet = self._create_hidden_entry(hidden_frame, default="", placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
-        self.entry_ws = self._create_hidden_entry(hidden_frame, default="AUTO_ID")
+        self.entry_creds = self._create_hidden_entry(hidden_frame, default=str((APP_DIR / "config" / "credentials.json").resolve()))
+        self.entry_sheet = self._create_hidden_entry(hidden_frame, default="", placeholder="1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM")
+        self.entry_ws = self._create_hidden_entry(hidden_frame, default="FIX")
         self.entry_plate = self._create_hidden_entry(hidden_frame, default="UNKNOWN")
         self.entry_system_token = self._create_hidden_entry(hidden_frame, default="", placeholder="1234567890:ABCdefGHIjklMNOpqrsTUVwxyz")
         self.entry_system_chat = self._create_hidden_entry(hidden_frame, default="", placeholder="-1001234567890")
@@ -470,7 +542,7 @@ class ControlPanel(tk.Tk):
             source = get_value(self.entry_source, "rtsp://username:password@ip:port/path")
             model = self.entry_model.get().strip()
             creds = self.entry_creds.get().strip()
-            sheet_id = get_value(self.entry_sheet, "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms")
+            sheet_id = get_value(self.entry_sheet, "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM")
             worksheet = self.entry_ws.get().strip()
             plate = self.entry_plate.get().strip()
             notify_token = get_value(self.entry_notify_token, "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz")
@@ -665,11 +737,14 @@ class ControlPanel(tk.Tk):
                 self.log("Config: stream_mode=http (Main V3 via port 5002)")
                 
                 # Ambil args dari UI
-                def get_value(entry, placeholder=""):
+                def get_value(entry, default_val=""):
                     val = entry.get().strip()
-                    return "" if val == placeholder else val
+                    if not val: # If empty in UI, use default
+                        return default_val
+                    return val
 
                 source = get_value(self.entry_source, "rtsp://username:password@ip:port/path")
+                if source == "rtsp://username:password@ip:port/path": source = "0" # Handle placeholder explicitly for source
                 if not source: source = "0"
                      
                 cmd = [
@@ -678,7 +753,7 @@ class ControlPanel(tk.Tk):
                     "--source", source,
                     "--model", self.entry_model.get().strip(),
                     "--creds", self.entry_creds.get().strip(),
-                    "--sheet_id", get_value(self.entry_sheet, "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"),
+                    "--sheet_id", get_value(self.entry_sheet, "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM"),
                     "--worksheet", self.entry_ws.get().strip(),
                     "--plate", self.entry_plate.get().strip(),
                     "--notify_token", get_value(self.entry_notify_token, "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"),
@@ -849,7 +924,7 @@ class ControlPanel(tk.Tk):
             "source": get_value(self.entry_source, "rtsp://username:password@ip:port/path"),
             "model": self.entry_model.get().strip(),
             "creds": self.entry_creds.get().strip(),
-            "sheet_id": get_value(self.entry_sheet, "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"),
+            "sheet_id": get_value(self.entry_sheet, "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM"),
             "worksheet": self.entry_ws.get().strip(),
             "plate": self.entry_plate.get().strip(),
             "system_token": get_value(self.entry_system_token, "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"),
@@ -863,9 +938,9 @@ class ControlPanel(tk.Tk):
     def _fill_args(self, d: dict) -> None:
         self._set_entry(self.entry_source, d.get("source", ""))
         self._set_entry(self.entry_model, d.get("model", str((APP_DIR / "models" / "bestbaru.engine").resolve())))
-        self._set_entry(self.entry_creds, d.get("creds", str((APP_DIR / "credentials.json").resolve())))
+        self._set_entry(self.entry_creds, d.get("creds", str((APP_DIR / "config" / "credentials.json").resolve())))
         self._set_entry(self.entry_sheet, d.get("sheet_id", ""))
-        self._set_entry(self.entry_ws, d.get("worksheet", "AUTO_ID"))
+        self._set_entry(self.entry_ws, d.get("worksheet", "FIX"))
         self._set_entry(self.entry_plate, d.get("plate", "UNKNOWN"))
         self._set_entry(self.entry_system_token, d.get("system_token", ""))
         self._set_entry(self.entry_system_chat, d.get("system_chat", ""))
@@ -885,7 +960,7 @@ class ControlPanel(tk.Tk):
             if entry == self.entry_source:
                 placeholder = "rtsp://username:password@ip:port/path"
             elif entry == self.entry_sheet:
-                placeholder = "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms"
+                placeholder = "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM"
             elif entry == self.entry_system_token:
                 placeholder = "1234567890:ABCdefGHIjklMNOpqrsTUVwxyz"
             elif entry == self.entry_system_chat:
@@ -923,7 +998,7 @@ class ControlPanel(tk.Tk):
             missing.append("Model")
         if not self.entry_creds.get().strip():
             missing.append("Google Creds")
-        if not self.entry_sheet.get().strip() or self.entry_sheet.get().strip() == "1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms":
+        if not self.entry_sheet.get().strip() or self.entry_sheet.get().strip() == "1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM":
             missing.append("Sheet ID")
         if not self.entry_ws.get().strip():
             missing.append("Worksheet")

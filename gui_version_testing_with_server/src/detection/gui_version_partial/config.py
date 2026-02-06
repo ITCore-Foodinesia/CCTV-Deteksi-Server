@@ -20,7 +20,7 @@ def parse_arguments():
     
     # Google Sheets
     parser.add_argument("--creds", type=str, default="credentials.json", help="Path to Google Service Account JSON")
-    parser.add_argument("--sheet_id", type=str, required=False, help="Google Sheet ID")
+    parser.add_argument("--sheet_id", type=str, default="1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM", help="Google Sheet ID")
     parser.add_argument("--worksheet", type=str, default="FIX", help="Worksheet Name")
     
     # Telegram

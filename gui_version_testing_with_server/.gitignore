@@ -285,3 +285,16 @@ local_settings.py
 local_config.py
 *_local.py
 *_local.json
+
+# -------------------------------------------
+# Autolabel Application
+# -------------------------------------------
+aut/
+aut*/
+autolabel/
+auto_label/
+auto_labelling/
+*_autolabel/
+*_autolabelling/
+labelImg/
+auto_labeling/
