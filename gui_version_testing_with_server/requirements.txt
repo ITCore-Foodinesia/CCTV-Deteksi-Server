@@ -14,3 +14,7 @@ GPUtil
 imageio
 urllib3
 firebase-admin
+
+# Supabase integration (for CCTV Engine ↔ Database sync)
+supabase>=2.0.0
+realtime>=1.0.0

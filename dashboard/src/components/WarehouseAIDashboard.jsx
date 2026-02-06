@@ -14,7 +14,7 @@ import CCTVFeed from './CCTVFeed';
 import ActivityLog from './ActivityLog';
 import { useWebSocket } from '../hooks/useWebSocket';
 
-const WarehouseAIDashboard = () => {
+const WarehouseAIDashboard = ({ onNavigate, embedded = false }) => {
   const [activeCamera, setActiveCamera] = useState(1);
 
   // WebSocket hook for real-time updates
@@ -38,7 +38,8 @@ const WarehouseAIDashboard = () => {
     driver: sheetsData.latest_driver || 'Driver'
   };
 
-  const glassCard = "bg-white/70 backdrop-blur-2xl border border-white/80 shadow-sm rounded-[2rem]";
+  // Responsive glass card - smaller radius on mobile
+  const glassCard = "bg-white/70 backdrop-blur-2xl border border-white/80 shadow-sm rounded-xl md:rounded-[2rem]";
 
   // Helper function to safely parse values
   const parseValue = (val, fallback) => {
@@ -47,21 +48,55 @@ const WarehouseAIDashboard = () => {
     return isNaN(parsed) ? fallback : parsed;
   };
 
-  // Use latest_loading/latest_rehab (from last row of spreadsheet) - these are the "last truck" values
-  // Fallback to loading_count/rehab_count (sum of all rows) if latest values are 0
-  const barangMasuk = parseValue(sheetsData.latest_loading, 0) || parseValue(sheetsData.loading_count, stats.inbound || 0);
-  const barangKeluar = parseValue(sheetsData.latest_rehab, 0) || parseValue(sheetsData.rehab_count, stats.outbound || 0);
-  const totalLoading = barangMasuk + barangKeluar;
+  /**
+   * Determine loading status based on jam_datang and jam_selesai
+   * - Active Loading: jam_datang exists AND jam_selesai is empty
+   * - Completed: both jam_datang AND jam_selesai exist
+   * - No Data: jam_datang is empty
+   */
+  const getLoadingStatus = () => {
+    const jamDatang = sheetsData.jam_datang?.trim() || '';
+    const jamSelesai = sheetsData.jam_selesai?.trim() || '';
+    const plate = sheetsData.latest_plate || 'N/A';
+    
+    // Case 1: Has arrival time but no completion time = Currently Loading
+    if (jamDatang && !jamSelesai) {
+      return {
+        isActiveLoading: true,
+        isCompleted: false,
+        activePlate: plate,
+        lastCompletedPlate: 'N/A',
+        arrivalTime: jamDatang,
+      };
+    }
+    
+    // Case 2: Has both arrival and completion time = Completed
+    if (jamDatang && jamSelesai) {
+      return {
+        isActiveLoading: false,
+        isCompleted: true,
+        activePlate: null,
+        lastCompletedPlate: plate,
+        arrivalTime: jamDatang,
+      };
+    }
+    
+    // Case 3: No data
+    return {
+      isActiveLoading: false,
+      isCompleted: false,
+      activePlate: null,
+      lastCompletedPlate: 'N/A',
+      arrivalTime: '',
+    };
+  };
 
-  // DEBUG: Log values to identify source of 28/20
-  console.log('DEBUG Stats:', {
-    'sheetsData.latest_loading': sheetsData.latest_loading,
-    'sheetsData.latest_rehab': sheetsData.latest_rehab,
-    'stats.inbound': stats.inbound,
-    'stats.outbound': stats.outbound,
-    'barangMasuk (displayed)': barangMasuk,
-    'barangKeluar (displayed)': barangKeluar,
-  });
+  const loadingStatus = getLoadingStatus();
+
+  // Use latest_loading/latest_rehab from last row (prioritize over totals)
+  const barangMasuk = parseValue(sheetsData.latest_loading, parseValue(sheetsData.loading_count, stats.inbound || 0));
+  const barangKeluar = parseValue(sheetsData.latest_rehab, parseValue(sheetsData.rehab_count, stats.outbound || 0));
+  const totalLoading = barangMasuk - barangKeluar;
 
   const statsConfig = [
     {
@@ -102,102 +137,141 @@ const WarehouseAIDashboard = () => {
     },
     {
       icon: Box,
-      label: 'Kapasitas',
-      value: `${stats.capacity ?? 84}%`,
-      badge: 'Hampir Penuh',
+      label: 'Loading Truk Terakhir',
+      value: loadingStatus.lastCompletedPlate,
+      badge: loadingStatus.isCompleted
+        ? `Loading: ${barangMasuk} | Rehab: ${barangKeluar}`
+        : 'Tidak Ada Data',
       bgColor: 'bg-amber-100/50 border-amber-100',
       iconColor: 'text-amber-600',
       badgeColor: 'bg-amber-200/50',
     },
   ];
 
-  return (
-    <div className="min-h-screen bg-[#F5F7F2] p-4 md:p-6 font-sans text-slate-600 flex flex-col h-screen overflow-hidden">
-      <Header connected={connected} status={status} />
+  // Mobile-only Loading Dock stat card config
+  const loadingDockStatCard = {
+    icon: Loader2,
+    label: 'Loading Dock',
+    value: loadingStatus.isActiveLoading ? loadingStatus.activePlate : 'Tidak Ada Loading',
+    badge: loadingStatus.isActiveLoading
+      ? `Sedang Loading • ${loadingStatus.arrivalTime}`
+      : 'Semua dock tersedia',
+    bgColor: 'bg-violet-100/50 border-violet-100',
+    iconColor: 'text-violet-600',
+    badgeColor: 'bg-violet-200/50',
+    isAnimated: loadingStatus.isActiveLoading, // For spinning icon
+  };
 
-      <div className="flex-1 flex flex-col gap-6 overflow-hidden pb-2">
-        {/* STATS ROW - 5 Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 flex-shrink-0">
-          {statsConfig.map((stat, index) => (
-            <StatsCard key={index} {...stat} />
-          ))}
+  // Content component to avoid duplication
+  const DashboardContent = () => (
+    <>
+      {/* STATS ROW - 2 cols mobile (6 cards: 5 + Loading Dock), 5 cols desktop (5 cards only) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 md:gap-3 flex-shrink-0">
+        {statsConfig.map((stat, index) => (
+          <StatsCard key={index} {...stat} compact={true} />
+        ))}
+        {/* Loading Dock as 6th stat card - MOBILE ONLY */}
+        <div className="md:hidden">
+          <StatsCard {...loadingDockStatCard} compact={true} />
+        </div>
+      </div>
+
+      {/* MAIN CONTENT - Stack on mobile, grid on desktop */}
+      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-12 gap-3 md:gap-4 lg:overflow-hidden">
+        {/* CCTV Feed - Full width on mobile, 8 cols on desktop */}
+        <div className="lg:col-span-8 flex flex-col lg:overflow-y-auto scrollbar-hide lg:pr-2">
+          <CCTVFeed
+            activeCamera={activeCamera}
+            setActiveCamera={setActiveCamera}
+            streamStatus={status}
+            fps={stats.fps}
+            latency={stats.latency}
+          />
         </div>
 
-        {/* MAIN CONTENT GRID */}
-        <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-6 overflow-hidden">
-          {/* LEFT: CCTV Feed (8 cols) */}
-          <div className="lg:col-span-8 flex flex-col overflow-y-auto scrollbar-hide pr-2">
+        {/* Sidebar - Stack below CCTV on mobile, 4 cols on desktop */}
+        <div className="lg:col-span-4 flex flex-col gap-3 md:gap-4 lg:overflow-hidden">
 
-            <CCTVFeed
-              activeCamera={activeCamera}
-              setActiveCamera={setActiveCamera}
-              streamStatus={status}
-              fps={stats.fps}
-              latency={stats.latency}
-            />
+          {/* LOADING DOCK CARD - DESKTOP ONLY (big card) */}
+          <div className="hidden lg:flex bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex-col relative overflow-hidden group min-h-[160px] justify-center items-center flex-shrink-0">
+          <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+            <Truck className="w-20 h-20 text-violet-600" />
           </div>
 
-          {/* RIGHT: Loading Dock + Activity Logs (4 cols) */}
-          <div className="lg:col-span-4 flex flex-col gap-6 overflow-hidden">
+          <div className="text-center z-10">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <Loader2 className={`w-5 h-5 text-violet-400 ${loadingStatus.isActiveLoading ? 'animate-spin' : ''}`} />
+              <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">
+                Loading Dock
+              </span>
+            </div>
 
-            {/* LOADING DOCK CARD - BIG */}
-            <div className="bg-violet-100/50 border border-violet-100 p-6 rounded-[2rem] flex flex-col relative overflow-hidden group min-h-[180px] justify-between">
-              <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
-                <Truck className="w-20 h-20 text-violet-600" />
-              </div>
-
-              <div>
-                <div className="flex items-center gap-2 mb-3">
-                  <Loader2 className="w-4 h-4 text-violet-600 animate-spin" />
-                  <span className="text-xs font-bold text-violet-600 uppercase tracking-wider">
-                    Loading {activeLoadingTruck.dock}
-                  </span>
-                  <span className="ml-auto bg-violet-200/50 text-violet-700 text-sm font-bold px-3 py-1 rounded-full border border-violet-200">
-                    {activeLoadingTruck.progress}%
-                  </span>
-                </div>
-
-                <h3 className="text-4xl font-black text-violet-900 mb-2">{activeLoadingTruck.plate}</h3>
+            {loadingStatus.isActiveLoading ? (
+              <>
+                <h3 className="text-2xl font-black text-violet-900 mb-2">{loadingStatus.activePlate}</h3>
                 <p className="text-sm font-medium text-violet-700">
-                  {activeLoadingTruck.driver} • {activeLoadingTruck.items}
+                  Sedang Loading • {loadingStatus.arrivalTime}
                 </p>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-white/40 h-3 rounded-full overflow-hidden backdrop-blur-sm border border-white/20 mt-4">
-                <div
-                  className="h-full bg-violet-500 rounded-full transition-all duration-1000 ease-out relative"
-                  style={{ width: `${activeLoadingTruck.progress}%` }}
-                >
-                  <div className="absolute inset-0 bg-white/30 animate-pulse"></div>
-                </div>
-              </div>
-            </div>
-
-            {/* ACTIVITY LOGS */}
-            <div className={`${glassCard} flex-1 flex flex-col overflow-hidden`}>
-              <div className="p-5 border-b border-white/50 flex justify-between items-center">
-                <div>
-                  <h2 className="text-lg font-bold text-gray-800">Log Aktivitas</h2>
-                  <p className="text-xs text-gray-500">Deteksi Real-time</p>
-                </div>
-                <div className="p-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100">
-                  <Filter className="w-4 h-4 text-gray-400" />
-                </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
-                <ActivityLog logs={activities} />
-              </div>
-
-              <div className="p-4 border-t border-white/50 bg-white/30 backdrop-blur-md">
-                <button className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold shadow-lg shadow-slate-300 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
-                  View All Reports <ArrowUpRight className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-
+              </>
+            ) : (
+              <>
+                <h3 className="text-2xl font-black text-violet-900 mb-2">Tidak Ada Loading</h3>
+                <p className="text-sm font-medium text-violet-700">
+                  Semua dock tersedia
+                </p>
+              </>
+            )}
           </div>
+        </div>
+
+        {/* ACTIVITY LOGS */}
+        <div className={`${glassCard} flex-1 flex flex-col overflow-hidden`}>
+          <div className="p-5 border-b border-white/50 flex justify-between items-center">
+            <div>
+              <h2 className="text-lg font-bold text-gray-800">Log Aktivitas</h2>
+              <p className="text-xs text-gray-500">Deteksi Real-time</p>
+            </div>
+            <div className="p-2 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100">
+              <Filter className="w-4 h-4 text-gray-400" />
+            </div>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 scrollbar-hide">
+            <ActivityLog logs={activities} />
+          </div>
+
+          <div className="p-4 border-t border-white/50 bg-white/30 backdrop-blur-md">
+            <button className="w-full py-3 bg-slate-800 text-white rounded-xl font-bold shadow-lg shadow-slate-300 hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 text-sm">
+              View All Reports <ArrowUpRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    </>
+  );
+
+  // Embedded mode: no outer wrapper, just the content
+  if (embedded) {
+    return (
+      <div className="flex flex-col gap-3 md:gap-4">
+        <DashboardContent />
+      </div>
+    );
+  }
+
+  // Standalone mode: full page with header
+  return (
+    <div className="min-h-screen bg-slate-200">
+      {/* Centered container with max-width for compact layout */}
+      {/* max-w-5xl = 1024px (approximately 80% of 1280px) for tighter layout */}
+      <div className="max-w-4xl mx-auto p-2 md:p-4 font-sans text-slate-600 flex flex-col min-h-screen lg:h-screen lg:overflow-hidden bg-[#F5F7F2] shadow-xl">
+        <Header connected={connected} status={status} onNavigate={onNavigate} />
+
+        {/* Mobile: scrollable, Desktop: fixed layout */}
+        <div className="flex-1 flex flex-col gap-3 md:gap-4 overflow-y-auto lg:overflow-hidden pb-2">
+          <DashboardContent />
         </div>
       </div>
     </div>

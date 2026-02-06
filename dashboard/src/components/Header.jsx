@@ -1,10 +1,39 @@
-import React from 'react';
-import { Video, Wifi, ShieldCheck, WifiOff } from 'lucide-react';
+import React, { useState } from 'react';
+import { Video, Wifi, ShieldCheck, WifiOff, LogOut, ChevronDown } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
-const Header = ({ connected, status }) => {
-  // System is online if status indicates streaming/connected OR if WebSocket is connected
-  const isConnected = status === 'Connected' || status === 'Streaming' || connected;
+const Header = ({ connected, status, onNavigate }) => {
+  const { user, signOut } = useAuth();
+  const [showDropdown, setShowDropdown] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  
+  const isConnected = status === 'Connected';
   const wsConnected = connected;
+
+  // Get user display info from Supabase user object
+  const userEmail = user?.email || 'user@example.com';
+  const userFullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'User';
+  // Generate avatar seed from user id or email for consistent avatar
+  const avatarSeed = user?.id || userEmail;
+
+  const handleLogout = async () => {
+    setIsSigningOut(true);
+    const result = await signOut();
+    
+    if (result.success) {
+      // Navigate to landing page after logout
+      if (onNavigate) {
+        onNavigate('landing');
+      }
+    } else {
+      console.error('Logout failed:', result.error);
+      // Still navigate even if there's an error (session might already be invalid)
+      if (onNavigate) {
+        onNavigate('landing');
+      }
+    }
+    setIsSigningOut(false);
+  };
 
   return (
     <header className="flex justify-between items-center mb-6 flex-shrink-0">
@@ -35,8 +64,57 @@ const Header = ({ connected, status }) => {
             <ShieldCheck className="w-3 h-3 text-blue-500" /> AI Model: YOLOv8-Pro
           </span>
         </div>
-        <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
-          <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=Admin" alt="User" />
+        
+        {/* User Profile Dropdown */}
+        <div className="relative">
+          <button 
+            onClick={() => setShowDropdown(!showDropdown)}
+            className="flex items-center gap-2 hover:bg-white/50 rounded-full p-1 transition-colors"
+            aria-label="User menu"
+            aria-expanded={showDropdown}
+          >
+            <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden border-2 border-white shadow-sm">
+              <img 
+                src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${avatarSeed}`} 
+                alt="User avatar" 
+              />
+            </div>
+            <ChevronDown className={`w-4 h-4 text-gray-500 hidden md:block transition-transform ${showDropdown ? 'rotate-180' : ''}`} />
+          </button>
+          
+          {/* Dropdown Menu */}
+          {showDropdown && (
+            <>
+              {/* Backdrop to close dropdown */}
+              <div 
+                className="fixed inset-0 z-40" 
+                onClick={() => setShowDropdown(false)}
+              />
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 z-50">
+                <div className="px-4 py-2 border-b border-gray-100">
+                  <p className="text-sm font-semibold text-gray-800 truncate">{userFullName}</p>
+                  <p className="text-xs text-gray-500 truncate">{userEmail}</p>
+                </div>
+                <button
+                  onClick={handleLogout}
+                  disabled={isSigningOut}
+                  className="w-full px-4 py-2 text-left text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  {isSigningOut ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-gray-400 border-t-transparent rounded-full animate-spin"></div>
+                      Signing out...
+                    </>
+                  ) : (
+                    <>
+                      <LogOut className="w-4 h-4 text-gray-400" />
+                      Sign Out
+                    </>
+                  )}
+                </button>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </header>
