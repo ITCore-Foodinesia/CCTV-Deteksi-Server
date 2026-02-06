@@ -189,6 +189,17 @@ class FrameBuffer:
         return self._latest is None
     
     @property
+    def size(self) -> int:
+        """Get current buffer size (number of frames in deque)."""
+        with self._lock:
+            return len(self._frames)
+    
+    @property
+    def max_frames(self) -> int:
+        """Get maximum buffer size."""
+        return self._frames.maxlen or 3
+    
+    @property
     def fps(self) -> float:
         """Get current FPS."""
         return self._latest.fps if self._latest else 0.0

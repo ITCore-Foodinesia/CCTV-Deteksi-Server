@@ -179,14 +179,27 @@ def _get_tui_stats() -> Dict[str, Any]:
     clients = 0
     
     if frame_buffer:
-        buffer_current = frame_buffer.size
+        # Use new size and max_frames properties
+        buffer_current = frame_buffer.size if hasattr(frame_buffer, 'size') else 0
         buffer_max = frame_buffer.max_frames if hasattr(frame_buffer, 'max_frames') else 10
+        # Get FPS from frame_buffer stats
+        buffer_stats = frame_buffer.get_stats() if hasattr(frame_buffer, 'get_stats') else {}
+        fps_current = buffer_stats.get('fps', 0)
+        frames_total = buffer_stats.get('frame_count', 0)
     
-    if stream_capture and hasattr(stream_capture, 'stats'):
-        stats = stream_capture.stats
-        fps_current = stats.get('fps', 0)
-        frames_total = stats.get('frames_captured', 0)
-        clients = stats.get('clients', 0)
+    if stream_capture:
+        # Try stats property first (for StreamCaptureRelay), then get_stats method
+        if hasattr(stream_capture, 'stats'):
+            stats = stream_capture.stats
+            if isinstance(stats, dict):
+                fps_current = stats.get('fps', fps_current) or fps_current
+                frames_total = stats.get('frames_received', stats.get('frames_captured', frames_total)) or frames_total
+                clients = stats.get('clients', 0)
+        elif hasattr(stream_capture, 'get_stats'):
+            stats = stream_capture.get_stats()
+            fps_current = stats.get('fps', fps_current) or fps_current
+            frames_total = stats.get('frames_received', stats.get('frames_captured', frames_total)) or frames_total
+            clients = stats.get('clients', 0)
     
     # Sheets integration
     sheets_connected = False
@@ -376,7 +389,6 @@ def run_server(config: ServerConfig) -> None:
         debug=config.debug,
         allow_unsafe_werkzeug=True
     )
-
 
 # ==============================================================================
 # CLI Entry Point

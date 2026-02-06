@@ -141,6 +141,12 @@ class QueueWriter(io.TextIOBase):
     def isatty(self):
         return getattr(self._fallback, "isatty", lambda: False)()
 
+    def fileno(self):
+        return getattr(self._fallback, "fileno", lambda: -1)()
+
+    def __getattr__(self, name):
+        return getattr(self._fallback, name)
+
 
 class QueueLogHandler(logging.Handler):
     """Logging handler that writes to a queue for TUI display."""
