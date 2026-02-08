@@ -3,6 +3,14 @@ import json
 import os
 from pathlib import Path
 
+# Load environment variables
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
+
+
 def parse_arguments():
     """
     Parses command line arguments, similar to main_v2.py.
@@ -22,6 +30,16 @@ def parse_arguments():
     parser.add_argument("--creds", type=str, default="credentials.json", help="Path to Google Service Account JSON")
     parser.add_argument("--sheet_id", type=str, default="1Ry_7xYxnt9wto83G4MVLiclB7mticgxVcjxnXaZGIQM", help="Google Sheet ID")
     parser.add_argument("--worksheet", type=str, default="FIX", help="Worksheet Name")
+    
+    # Supabase (NEW - for Flutter integration)
+    parser.add_argument("--supabase_url", type=str, default=os.getenv('SUPABASE_URL', ''), 
+                        help="Supabase project URL (or set SUPABASE_URL env var)")
+    parser.add_argument("--supabase_key", type=str, default=os.getenv('SUPABASE_SERVICE_ROLE_KEY', ''), 
+                        help="Supabase service role key (or set SUPABASE_SERVICE_ROLE_KEY env var)")
+    parser.add_argument("--enable_supabase", action="store_true", default=True,
+                        help="Enable Supabase integration for Flutter app")
+    parser.add_argument("--no_supabase", action="store_true", 
+                        help="Disable Supabase integration (Sheets only)")
     
     # Telegram
     parser.add_argument("--notify_token", type=str, required=False, help="Telegram Token for Notifications")

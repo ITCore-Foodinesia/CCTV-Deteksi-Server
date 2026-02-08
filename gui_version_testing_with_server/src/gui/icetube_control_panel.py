@@ -287,14 +287,44 @@ class ControlPanel(tk.Tk):
             btns.columnconfigure(i, weight=1)
 
         # Log frame (ringkas, hanya info)
-        logf = ttk.LabelFrame(self, text="Info")
+        logf = ttk.LabelFrame(self, text="Info & Logs")
         logf.pack(fill=tk.BOTH, expand=True, **pad)
         self.info_text = tk.Text(logf, height=14, wrap=tk.WORD)
         self.info_text.pack(fill=tk.BOTH, expand=True, padx=8, pady=8)
+        
+        # Add scrollbar for log
+        log_scroll = ttk.Scrollbar(logf, command=self.info_text.yview)
+        log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
+        self.info_text.config(yscrollcommand=log_scroll.set)
+
+        # Start log watcher
+        self.last_log_pos = 0
+        self._watch_log_file()
 
         # Muat profil awal jika ada
         if self.profile_var.get():
             self.load_profile()
+
+    def _watch_log_file(self) -> None:
+        """Watch session_manager.log and append new lines to info text"""
+        log_path = APP_DIR / "logs" / "session_manager.log"
+        if log_path.exists():
+            try:
+                with open(log_path, "r", encoding="utf-8") as f:
+                    # Seek to last known position
+                    f.seek(self.last_log_pos)
+                    new_lines = f.read()
+                    if new_lines:
+                        self.last_log_pos = f.tell()
+                        # Filter for relevant info to avoid clutter
+                        for line in new_lines.splitlines():
+                            if any(k in line for k in ["Session", "Plate", "Error", "DETECTED", "Resolved"]):
+                                self.log(f"[Session] {line.strip()}")
+            except Exception:
+                pass
+        
+        # Check again in 1 second
+        self.after(1000, self._watch_log_file)
 
     def _add_labeled_entry(self, parent: ttk.LabelFrame, label: str, row: int, default: str = "", placeholder: str = "") -> tk.Entry:
         ttk.Label(parent, text=label).grid(row=row, column=0, sticky=tk.W, padx=8, pady=4)
@@ -716,8 +746,8 @@ class ControlPanel(tk.Tk):
         self.log(f"Main V3 dihentikan (terminated={n}).")
 
     def toggle_main_v3(self) -> None:
-        """Menjalankan Main V3 (Multiprocessing Architecture)"""
-        if is_process_running("src.detection.gui_version_partial.main") or is_process_running("gui_version_partial.main") or is_process_running("main.py"):
+        """Menjalankan Main V3 Integrated (Multiprocessing + Supabase + Sheets)"""
+        if is_process_running("src.detection.gui_version_partial.main") or is_process_running("gui_version_partial.main") or is_process_running("main.py") or is_process_running("main_integrated"):
             self.stop_main_v3()
         else:
             try:
@@ -728,7 +758,7 @@ class ControlPanel(tk.Tk):
                 if not is_process_running("telegram_monitor_bot.py"):
                      self.start_bot(auto_start_qr=False)
 
-                self.log("Persiapan Start Main V3 (Multiprocessing)...")
+                self.log("Persiapan Start Main V3 Integrated (Sheets + Supabase)...")
                 
                 # Ensure API server uses Main V3 internal HTTP stream
                 self.config_data["stream_mode"] = "http"
@@ -746,10 +776,11 @@ class ControlPanel(tk.Tk):
                 source = get_value(self.entry_source, "rtsp://username:password@ip:port/path")
                 if source == "rtsp://username:password@ip:port/path": source = "0" # Handle placeholder explicitly for source
                 if not source: source = "0"
-                     
+                
+                # Use main_integrated for dual database support (Sheets + Supabase)
                 cmd = [
                     self._python_exe(),
-                    "-m", "src.detection.gui_version_partial.main",
+                    "-m", "src.detection.gui_version_partial.main_integrated",
                     "--source", source,
                     "--model", self.entry_model.get().strip(),
                     "--creds", self.entry_creds.get().strip(),
@@ -775,6 +806,7 @@ class ControlPanel(tk.Tk):
                 
                 # LOG THE FULL COMMAND for debugging
                 self.log(f"CMD Start: {' '.join(cmd)}")
+                self.log("Mode: INTEGRATED (Dual DB: Sheets + Supabase)")
                 
                 # Create separate console window
                 creation_flags = subprocess.CREATE_NEW_CONSOLE if os.name == "nt" else 0
@@ -784,13 +816,14 @@ class ControlPanel(tk.Tk):
                     cwd=str(APP_DIR),
                     creationflags=creation_flags
                 )
-                self.log("Main V3 telah dijalankan di window baru.")
+                self.log("Main V3 Integrated telah dijalankan di window baru.")
+                self.log("📊 Data akan ditulis ke: Google Sheets + Supabase")
+                self.log("🔄 Validasi: QR Scan + Flutter App (keduanya aktif)")
                 
                 # Send status to Unified Server (if running)
                 self._notify_unified_server_status("STARTING", self.entry_plate.get().strip())
-                self.log("Note: Start Unified Server manually for dashboard streaming (port 5001)")
             except Exception as e:
-                messagebox.showerror("Gagal V3", str(e))
+                messagebox.showerror("Gagal V3 Integrated", str(e))
 
     def _start_unified_server(self) -> None:
         """Auto-start Unified Server for dashboard streaming (port 5001)."""
