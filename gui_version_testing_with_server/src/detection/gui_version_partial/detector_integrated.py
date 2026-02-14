@@ -226,7 +226,7 @@ class QRWorker(threading.Thread):
                 time.sleep(1)
 
 
-def run_detector_integrated(config, upload_queue: queue.Queue, session_manager: SessionManager):
+def run_detector_integrated(config, upload_queue: queue.Queue, session_manager: SessionManager, callback_update=None):
     """
     Run detector with integrated session manager.
     
@@ -234,6 +234,7 @@ def run_detector_integrated(config, upload_queue: queue.Queue, session_manager: 
         config: Configuration object
         upload_queue: Queue for sending payloads to uploader
         session_manager: SessionManager instance for unified session handling
+        callback_update: Optional callback to send frames to internal server
     """
     print(f"[{PROC_DETECTOR}] Starting Integrated Detector...")
     font = cv2.FONT_HERSHEY_SIMPLEX
@@ -458,8 +459,8 @@ def run_detector_integrated(config, upload_queue: queue.Queue, session_manager: 
                                     ))
 
                                     # Notify via Telegram
-                                    msg = f"✅ Count Update ({current_plate}):\nLoading: {loading}\nRehab: {rehab}\nTotal: {total}"
-                                    send_telegram_message_async(msg, config.notify_token, config.notify_chat_id)
+                                    # msg = f"✅ Count Update ({current_plate}):\nLoading: {loading}\nRehab: {rehab}\nTotal: {total}"
+                                    # send_telegram_message_async(msg, config.notify_token, config.notify_chat_id)
                                     
                                     # Reset/Start Timer on new activity
                                     sheet_timer_start = now
@@ -513,7 +514,7 @@ def run_detector_integrated(config, upload_queue: queue.Queue, session_manager: 
                     print(f"[{PROC_DETECTOR}] Timer expired! Finalizing session.")
                     
                     # Notify
-                    msg = f"⏱️ Waktu Habis (10 menit) untuk {current_plate}.\nSesi diakhiri otomatis.\nFinal Counts:\nLoading: {loading}\nRehab: {rehab}"
+                    msg = f"⏱️ Waktu Habis (10 menit) untuk {current_plate}.\nSesi diakhiri otomatis."
                     send_telegram_message_async(msg, config.notify_token, config.notify_chat_id)
                     
                     # End Session
@@ -590,6 +591,22 @@ def run_detector_integrated(config, upload_queue: queue.Queue, session_manager: 
                 loading_anim = False
                 rehab_anim = False
             
+            # --- BROADCAST FRAME TO INTERNAL SERVER ---
+            if callback_update:
+                try:
+                    # Create stats dict
+                    stats = {
+                        "fps": round(fps, 1),
+                        "loading": loading,
+                        "rehab": rehab,
+                        "plate": current_plate,
+                        "status": "RUNNING" if counting_active else "IDLE"
+                    }
+                    callback_update(frame, stats)
+                except Exception as e:
+                    pass
+            # -------------------------------------------
+
             cv2.imshow(window_name, frame)
             
             key = cv2.waitKey(1) & 0xFF

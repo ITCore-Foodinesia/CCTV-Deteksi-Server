@@ -169,9 +169,12 @@ class DualUploaderThread(threading.Thread):
         if GSPREAD_AVAILABLE and self.config.creds and self.config.sheet_id:
             scope = ['https://spreadsheets.google.com/feeds', 'https://www.googleapis.com/auth/drive']
             
-            while self.running:
+            # Try connecting to Sheets (Non-blocking / Limited Retries)
+            max_retries = 3
+            for attempt in range(max_retries):
+                if not self.running: break
                 try:
-                    log_debug(f"Connecting to Sheets: {self.config.sheet_id}")
+                    log_debug(f"Connecting to Sheets (Attempt {attempt+1}/{max_retries}): {self.config.sheet_id}")
                     creds = ServiceAccountCredentials.from_json_keyfile_name(self.config.creds, scope)
                     gc = gspread.authorize(creds)
                     ws = get_worksheet_safe(gc, self.config.sheet_id, self.config.worksheet or "FIX")
@@ -179,8 +182,12 @@ class DualUploaderThread(threading.Thread):
                     break
                 except Exception as e:
                     log_debug(f"Sheets connection failed: {e}")
-                    logger.warning(f"Sheets connection failed, retrying in 5s: {e}")
-                    time.sleep(5)
+                    if attempt < max_retries - 1:
+                        logger.warning(f"Sheets connection failed, retrying in 2s: {e}")
+                        time.sleep(2)
+                    else:
+                        logger.error(f"GIVING UP on Google Sheets after {max_retries} attempts. Continuing with Supabase only.")
+                        ws = None
         else:
             logger.info("Google Sheets disabled (missing config or library)")
         
@@ -355,11 +362,13 @@ class DualUploaderThread(threading.Thread):
                 logger.info(f"[Supabase] Session end logged: L={item.loading} R={item.rehab}")
             
             elif item.kloter == "AUTO":
-                # Update counts in loading_sessions
+                # Update counts in loading_sessions (Real-time sync for ALL fields)
                 if session_id:
                     self._supabase.table('loading_sessions').update({
                         'loading_count': item.loading,
                         'rehab_count': item.rehab,
+                        'items_in': item.loading,  # Sync for Dashboard
+                        'items_out': item.rehab,   # Sync for Dashboard
                         'updated_at': datetime.datetime.utcnow().isoformat()
                     }).eq('id', session_id).execute()
                     logger.debug(f"[Supabase] Counts updated: L={item.loading} R={item.rehab}")

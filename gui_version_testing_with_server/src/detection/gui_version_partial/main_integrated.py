@@ -49,6 +49,64 @@ logging.basicConfig(
 )
 logger = logging.getLogger('IntegratedMain')
 
+# --- INTERNAL SERVER SETUP (Port 5002) ---
+from flask import Flask, Response, jsonify
+import cv2
+import numpy as np
+
+app = Flask(__name__)
+# Disable Flask default logging
+import logging as py_logging
+py_logging.getLogger('werkzeug').setLevel(py_logging.ERROR)
+
+current_shared_frame = None
+current_shared_stats = {}
+frame_lock = threading.Lock()
+
+def update_shared_data(frame, stats):
+    """Callback to receive frames from detector."""
+    global current_shared_frame, current_shared_stats
+    with frame_lock:
+        if frame is not None:
+            current_shared_frame = frame.copy()
+        if stats:
+            current_shared_stats = stats
+
+def generate_frames():
+    """Generator for video feed."""
+    while True:
+        with frame_lock:
+            if current_shared_frame is None:
+                time.sleep(0.05)
+                continue
+            
+            try:
+                # Encode to JPEG
+                ret, buffer = cv2.imencode('.jpg', current_shared_frame, [int(cv2.IMWRITE_JPEG_QUALITY), 65])
+                if not ret:
+                    continue
+                frame_bytes = buffer.tobytes()
+            except Exception:
+                continue
+
+        yield (b'--frame\r\n'
+               b'Content-Type: image/jpeg\r\n\r\n' + frame_bytes + b'\r\n')
+        time.sleep(0.05) # Cap at ~20 FPS
+
+@app.route('/video_feed')
+def video_feed():
+    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+
+@app.route('/stats')
+def stats_feed():
+    with frame_lock:
+        return jsonify(current_shared_stats)
+
+def run_internal_server():
+    """Start internal Flask server."""
+    logger.info("Starting Internal Video Feed on Port 5002...")
+    app.run(host='0.0.0.0', port=5002, debug=False, use_reloader=False, threaded=True)
+
 # Add parent paths for imports
 from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent.parent
@@ -139,8 +197,12 @@ def run_integrated():
     
     # 5. Start Session Manager (Supabase listener)
     session_manager.start()
+
+    # 6. Start Internal Video Server (Thread)
+    server_thread = threading.Thread(target=run_internal_server, daemon=True)
+    server_thread.start()
     
-    # 6. Run Detector with integration hooks
+    # 7. Run Detector with integration hooks
     # Import here to avoid circular imports
     from .detector_integrated import run_detector_integrated
     
@@ -148,7 +210,8 @@ def run_integrated():
         run_detector_integrated(
             config=config,
             upload_queue=upload_queue,
-            session_manager=session_manager
+            session_manager=session_manager,
+            callback_update=update_shared_data  # Pass the callback
         )
     except KeyboardInterrupt:
         logger.info("Keyboard interrupt received")

@@ -248,7 +248,7 @@ class SessionManager:
             if self._session:
                 self._end_current_session()
             
-            # Create new session
+            # Create new session local object
             self._session = Session(
                 plate_number=plate_number,
                 source="qr_scan",
@@ -256,6 +256,35 @@ class SessionManager:
             )
             
             logger.info(f"Session started from QR: {plate_number}")
+
+            # Create session in Supabase if connected
+            if self._supabase:
+                try:
+                    # Prepare minimal data for QR session (Plate + Status)
+                    insert_data = {
+                        "plate_number": plate_number,
+                        "plate_detected": plate_number,
+                        "status": "loading",
+                        "counting_active": True,
+                        "started_at": datetime.utcnow().isoformat(),
+                        "loading_count": 0,
+                        "rehab_count": 0,
+                        "start_source": "qr_scan",
+                        "items_in": 0,
+                        "items_out": 0
+                    }
+                    
+                    # Insert into loading_sessions
+                    res = self._supabase.table("loading_sessions").insert(insert_data).execute()
+                    if res.data and len(res.data) > 0:
+                        new_id = res.data[0].get("id")
+                        self._session.session_id = new_id
+                        logger.info(f"✅ Supabase session created for QR: {new_id}")
+                    else:
+                        logger.warning("Supabase insert for QR returned no data")
+                        
+                except Exception as e:
+                    logger.error(f"Failed to create Supabase session for QR: {e}")
             
             # Notify callback
             if self.on_session_change:
