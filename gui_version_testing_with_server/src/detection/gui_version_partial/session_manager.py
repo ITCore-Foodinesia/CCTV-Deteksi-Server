@@ -79,6 +79,9 @@ class Session:
     truck_id: Optional[str] = None
     dock_id: Optional[str] = None
     camera_id: Optional[str] = None
+    helper_id: Optional[str] = None
+    loader1_id: Optional[str] = None
+    loader2_id: Optional[str] = None
     metadata: Dict[str, Any] = field(default_factory=dict)
     
     def to_dict(self) -> Dict[str, Any]:
@@ -93,6 +96,9 @@ class Session:
             'truck_id': self.truck_id,
             'dock_id': self.dock_id,
             'camera_id': self.camera_id,
+            'helper_id': self.helper_id,
+            'loader1_id': self.loader1_id,
+            'loader2_id': self.loader2_id,
             'metadata': self.metadata,
         }
 
@@ -236,12 +242,6 @@ class SessionManager:
     def start_session_from_qr(self, plate_number: str) -> Session:
         """
         Start a new session from QR scan.
-        
-        Args:
-            plate_number: Scanned plate number
-            
-        Returns:
-            The new Session object
         """
         with self._lock:
             # End previous session if exists
@@ -255,25 +255,31 @@ class SessionManager:
                 started_at=time.time()
             )
             
-            logger.info(f"Session started from QR: {plate_number}")
+            logger.info(f"Session started from QR (Local): {plate_number}")
+            print(f"[{datetime.now().strftime('%H:%M:%S')}] 📷 QR Scanned: {plate_number}")
 
             # Create session in Supabase if connected
             if self._supabase:
                 try:
-                    # 1. Try to resolve truck_id from plate_number
+                    # 1. Resolve truck_id (CRITICAL: Required for DB Insert)
                     truck_id = None
                     driver_id = None
-                    try:
-                        # Attempt to find the truck in the database
-                        truck_res = self._supabase.table("trucks").select("id, driver_id").eq("plate_number", plate_number).execute()
-                        if truck_res.data and len(truck_res.data) > 0:
-                            truck_id = truck_res.data[0].get("id")
-                            driver_id = truck_res.data[0].get("driver_id")
-                            logger.info(f"✅ Resolved truck_id: {truck_id} for plate: {plate_number}")
-                    except Exception as e:
-                        logger.warning(f"Failed to resolve truck_id: {e}")
+                    
+                    # Try exact match first
+                    truck_res = self._supabase.table("trucks").select("id, driver_id").eq("plate_number", plate_number).execute()
+                    if truck_res.data:
+                        truck_id = truck_res.data[0].get("id")
+                        driver_id = truck_res.data[0].get("driver_id")
+                    else:
+                        # Try fuzzy match (remove spaces)
+                        clean_plate = plate_number.replace(" ", "")
+                        logger.info(f"Truck not found for '{plate_number}', trying '{clean_plate}'...")
+                        # This is a basic attempt; robust implementation would need a backend function or more logic
+                        # For now, just logging the failure clearly
+                        print(f"❌ TRUCK NOT FOUND in Database for plate: {plate_number}")
+                        logger.error(f"❌ Truck lookup failed for '{plate_number}'. Session CANNOT be saved to DB due to constraints.")
 
-                    # 2. Prepare data for QR session
+                    # 2. Prepare data
                     insert_data = {
                         "plate_number": plate_number,
                         "plate_detected": plate_number,
@@ -293,23 +299,24 @@ class SessionManager:
                         insert_data["driver_id"] = driver_id
                     
                     # 3. Insert into loading_sessions
-                    logger.info(f"Attempting to insert session: {insert_data}")
-                    res = self._supabase.table("loading_sessions").insert(insert_data).execute()
-                    
-                    if res.data and len(res.data) > 0:
-                        new_id = res.data[0].get("id")
-                        self._session.session_id = new_id
-                        logger.info(f"✅ Supabase session created for QR: {new_id}")
+                    if truck_id:
+                        logger.info(f"Attempting to insert QR session to DB...")
+                        res = self._supabase.table("loading_sessions").insert(insert_data).execute()
+                        
+                        if res.data and len(res.data) > 0:
+                            new_id = res.data[0].get("id")
+                            self._session.session_id = new_id
+                            logger.info(f"✅ DB Session Created: {new_id}")
+                            print(f"✅ Database Sync Success: Session ID {new_id}")
+                        else:
+                            logger.warning(f"⚠️ DB Insert returned no data: {res}")
                     else:
-                        logger.warning(f"Supabase insert for QR returned no data. Response: {res}")
+                        print(f"❌ SKIPPED DB INSERT: Missing Truck ID for {plate_number}")
                         
                 except Exception as e:
-                    logger.error(f"Failed to create Supabase session for QR: {e}")
-                    # Print more details if available
-                    if hasattr(e, 'details'):
-                         logger.error(f"Error details: {e.details}")
+                    logger.error(f"❌ Failed to create Supabase session: {e}")
                     if hasattr(e, 'message'):
-                         logger.error(f"Error message: {e.message}")
+                        print(f"❌ DB Error: {e.message}")
             
             # Notify callback
             if self.on_session_change:
@@ -393,6 +400,9 @@ class SessionManager:
                 truck_id=session_data.get('truck_id'),
                 dock_id=session_data.get('dock_id'),
                 camera_id=session_data.get('camera_id'),
+                helper_id=session_data.get('helper_id'),
+                loader1_id=session_data.get('loader1_id'),
+                loader2_id=session_data.get('loader2_id'),
                 loading_count=session_data.get('loading_count', 0),
                 rehab_count=session_data.get('rehab_count', 0),
                 metadata=session_data.get('metadata') or {}
@@ -540,7 +550,8 @@ class SessionManager:
             # Added 'plate_detected' to selection
             logger.info("Polling: Checking for active sessions in Supabase...")
             result = self._supabase.table('loading_sessions').select(
-                'id, driver_id, truck_id, dock_id, camera_id, status, plate_number, plate_detected, '
+                'id, driver_id, truck_id, dock_id, camera_id, helper_id, loader1_id, loader2_id, '
+                'status, plate_number, plate_detected, '
                 'counting_active, loading_count, rehab_count, started_at, metadata, '
                 'trucks(plate_number)'
             ).eq('status', 'loading').execute()
@@ -644,7 +655,8 @@ class SessionManager:
             # First try: Standard join
             # Added 'plate_detected' to selection
             result = self._supabase.table('loading_sessions').select(
-                'id, driver_id, truck_id, dock_id, camera_id, status, plate_number, plate_detected, '
+                'id, driver_id, truck_id, dock_id, camera_id, helper_id, loader1_id, loader2_id, '
+                'status, plate_number, plate_detected, '
                 'counting_active, loading_count, rehab_count, started_at, metadata, '
                 'trucks(plate_number)'
             ).eq('id', session_id).execute()

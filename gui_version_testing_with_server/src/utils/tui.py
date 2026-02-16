@@ -398,6 +398,14 @@ class EnhancedServerTUI:
         header_text.append(status.upper(), style=status_color)
         header_text.append(f"  {current_time}", style="dim cyan")
         
+        # Auth status
+        if stats.get('auth_enabled', False):
+            header_text.append("  │  ", style="dim")
+            header_text.append("🔒 SECURE", style="bold green")
+        else:
+            header_text.append("  │  ", style="dim")
+            header_text.append("🔓 OPEN", style="bold red")
+        
         metrics_text = Text()
         metrics_text.append(f"  Mode: ", style="dim")
         metrics_text.append(mode, style="bold magenta" if mode == "RELAY" else "bold blue")

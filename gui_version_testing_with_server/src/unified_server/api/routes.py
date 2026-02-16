@@ -8,6 +8,7 @@ import time
 from flask import Blueprint, jsonify, request
 
 from .streaming import create_video_response, create_snapshot_response
+from .auth import require_auth
 
 
 def create_api_blueprint(app_context: dict) -> Blueprint:
@@ -42,21 +43,25 @@ def create_api_blueprint(app_context: dict) -> Blueprint:
     # =========================================================================
     
     @api.route('/stream/video')
+    @require_auth
     def video_feed():
         """MJPEG video stream endpoint."""
         return create_video_response(frame_buffer)
     
     @api.route('/stream/video_raw')
+    @require_auth
     def video_feed_raw():
         """Raw MJPEG stream without detection overlay."""
         return create_video_response(frame_buffer, raw=True)
     
     @api.route('/stream/snapshot')
+    @require_auth
     def snapshot():
         """Single frame snapshot."""
         return create_snapshot_response(frame_buffer)
     
     @api.route('/stream/start')
+    @require_auth
     def start_stream():
         """Start video streaming."""
         if stream_capture.start():

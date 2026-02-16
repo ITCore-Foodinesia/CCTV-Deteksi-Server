@@ -12,6 +12,14 @@ import os
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Optional, Dict, Any
+from dotenv import load_dotenv
+
+# Load .env file immediately
+load_dotenv()
+from dotenv import load_dotenv
+
+# Load .env file immediately
+load_dotenv()
 
 
 @dataclass
@@ -63,6 +71,7 @@ class ServerConfig:
     port: int = 5001
     debug: bool = False
     enable_tui: bool = False
+    auth_key: str = ""  # Auth key for API/Stream access
     
     capture: CaptureConfig = field(default_factory=CaptureConfig)
     sheets: SheetsConfig = field(default_factory=SheetsConfig)

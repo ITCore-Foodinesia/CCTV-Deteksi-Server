@@ -38,6 +38,25 @@ def setup_websocket_handlers(
     @socketio.on('connect')
     def handle_connect(auth=None):
         """Handle client connection."""
+        # Check authentication (Fix F-01)
+        config = app_context.get('config')
+        if config and config.auth_key:
+            token = None
+            # 1. Try auth object (Standard Socket.IO auth)
+            if auth and isinstance(auth, dict):
+                token = auth.get('token')
+            
+            # 2. Try query param (Fallback)
+            if not token:
+                from flask import request
+                token = request.args.get('auth')
+            
+            # Verify token with timing-safe comparison
+            import hmac
+            if not token or not hmac.compare_digest(token, config.auth_key):
+                print(f"[WebSocket] Connection refused: Unauthorized")
+                return False  # Reject connection
+
         client_id = getattr(emit, 'sid', 'unknown')
         print(f"[WebSocket] Client connected: {client_id}")
         

@@ -164,6 +164,7 @@ def _get_tui_stats() -> Dict[str, Any]:
     # Mode and port
     mode = config.capture.mode.upper() if config else 'UNKNOWN'
     port = config.port if config else 5001
+    auth_enabled = bool(config.auth_key) if config else False
     
     # Source
     if config:
@@ -226,6 +227,7 @@ def _get_tui_stats() -> Dict[str, Any]:
         'status': status,
         'mode': mode,
         'port': port,
+        'auth_enabled': auth_enabled,
         'uptime_seconds': uptime_seconds,
         'stream': {
             'status': status,
